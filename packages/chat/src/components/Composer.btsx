@@ -162,17 +162,16 @@ form.bc-composer(onSubmit={event => { event.preventDefault(); void send(); }})
           div.bc-attachment-options(id={optionsId} role="group" aria-label="Attachment options")
             button(type="button" onClick={() => { setOptionsOpen(false); picker.current!.accept = 'image/*,video/*'; picker.current?.click(); }})
               Icon(name="image")
-              span Photos and videos
+              span Images and videos
             button(type="button" onClick={() => { setOptionsOpen(false); picker.current!.accept = ''; picker.current?.click(); }})
               Icon(name="file")
-              span Attach files
+              span Files
             button(type="button" onClick={() => { setOptionsOpen(false); setRecording(true); setError(null); }})
               Icon(name="audio")
               span Record audio
   div.bc-composer-field
     textarea(ref={input} rows={1} aria-label="Message" placeholder="Message…" autoComplete="off" enterKeyHint="send" value={draft} onInput={event => setDraft(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); } }})
   button.bc-send(type="submit" aria-label={sending ? 'Sending message' : 'Send message'} onPointerDown={event => event.preventDefault()} disabled={sending || recording || (!draft.trim() && !files.length)})
-    Icon(name="arrow-up")
-    span #{uploadingId ? 'Uploading' : sending ? 'Sending' : 'Send'}
+    Icon(name={sending || uploadingId ? 'arrow-up-indeterminate' : 'arrow-up-fill'})
   if error
     p.bc-error(role="alert") #{error}

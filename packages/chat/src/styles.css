@@ -147,9 +147,9 @@
 .bc-composer-field:focus-within { border-color:var(--bc-muted); }
 .bc-composer textarea { flex:1; width:100%; min-width:0; min-height:24px; max-height:120px; overflow:auto; resize:none; border:0; background:transparent; color:inherit; font-size:16px; line-height:24px; outline:none !important; touch-action:pan-y; }
 .bc-composer textarea::placeholder { color:var(--bc-muted); opacity:1; }
-.bc-send { display:flex; align-items:center; justify-content:center; gap:8px; min-height:48px; padding:12px 17px; background:var(--bc-accent); border:1px solid transparent; color:var(--bc-own-ink); border-radius:14px; font-size:12px !important; transition:transform 150ms var(--bc-ease),opacity 150ms; }
+.bc-send { display:flex; align-items:center; justify-content:center; min-height:48px; padding:4px 7px; background:var(--bc-accent); border:1px solid transparent; color:var(--bc-own-ink); border-radius:14px; font-size:12px !important; transition:transform 150ms var(--bc-ease),opacity 150ms; }
 .bc-send:active:not(:disabled) { transform:scale(.94); }
-.bc-send svg { width:18px; height:18px; }
+.bc-send svg { width:32px; height:32px; }
 .bc-empty { margin:auto; text-align:center; padding:32px; }
 .bc-empty-icon { display:grid; place-items:center; width:54px; height:54px; margin:0 auto 24px; border:1px solid var(--bc-line); border-radius:16px; color:var(--bc-muted); }
 .bc-empty p:not(.bc-eyebrow),.bc-state { color:var(--bc-muted); font-size:13px; }
