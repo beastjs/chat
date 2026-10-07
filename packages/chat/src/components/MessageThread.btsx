@@ -4,6 +4,8 @@ import { normalizeMessageLimit } from '../core/message-limit'
 import { layoutMessages } from '../core/message-layout'
 import { formatFileSize } from '../core/attachment'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
+import type { Attachment } from '../core/types'
+import AttachmentViewer from './AttachmentViewer.btsx'
 import Composer from './Composer.btsx'
 import Icon from './Icon.btsx'
 import Bubble, { BubbleContent, BubbleReactions } from './ui/bubble.btsx'
@@ -14,6 +16,7 @@ component ThreadBody
   props { adapter, identity, fid, pageSize }: { adapter: ChatAdapter; identity: ChatIdentity; fid: string; pageSize: number }
   setup
     const [limit, setLimit] = useState(pageSize);
+    const [viewing, setViewing] = useState<Attachment | null>(null);
     const { scrollToEnd, scrollToEndIfPinned } = useMessageScroller();
     const { data, loading, error, enteringId, entryMotion } = useMessages(adapter, fid, limit, identity.id, () => scrollToEndIfPinned({ behavior: 'instant' }));
     const rows = useMemo(() => layoutMessages(data.messages), [data.messages]);
@@ -30,6 +33,8 @@ component ThreadBody
       catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update reaction'); }
     };
   div.bc-thread
+    if viewing
+      AttachmentViewer(key={viewing.storageId} attachment={viewing} onClose={() => setViewing(null)})
     MessageScroller(className="bc-scroller")
       MessageScrollerViewport(className="bc-messages" preserveScrollOnPrepend={true})
         MessageScrollerContent
@@ -53,7 +58,7 @@ component ThreadBody
                       p.bc-message-text #{message.content}
                     each attachment in message.attachments ?? [] key attachment.storageId
                       if attachment.url
-                        a.bc-attachment-file(href={attachment.url} target="_blank" rel="noopener noreferrer" download={attachment.fileName})
+                        button.bc-attachment-file(type="button" aria-label={'View ' + attachment.fileName} onClick={() => setViewing(attachment)})
                           if attachment.fileType.startsWith('image/')
                             img.bc-attachment-image(src={attachment.url} alt={attachment.fileName} loading="lazy")
                           else

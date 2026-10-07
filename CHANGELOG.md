@@ -4,6 +4,9 @@ All notable changes to `chat` will be recorded here.
 
 ## [Unreleased]
 
+- Open attachments in a fullscreen modal viewer with image/video/audio/PDF previews, top-right Download and Close controls, Escape dismissal, and focus restoration.
+- Download files under their original names, report failed downloads, and release temporary URLs on cleanup; ship attachment icon shapes inside the library.
+
 - Add multiple attachments to the composer with image previews, file removal, upload states, retry-safe sends, and cancellation/preview cleanup on unmount.
 - Enable local uploads in the memory adapter and a host-provided upload function in the Convex adapter; display sent images and file downloads inside message bubbles.
 

@@ -432,7 +432,7 @@ describe('native Beast chat', () => {
       await act(async () => { container.querySelector('form')!.dispatchEvent(new browser.Event('submit', {bubbles: true, cancelable: true})); await Promise.resolve(); await Promise.resolve() })
       expect(container.querySelectorAll('.bc-pending-file').length).toBe(0)
       expect(container.querySelector('.bc-attachment-file')!.textContent).toContain('notes.txt')
-      expect(container.querySelector('.bc-attachment-file')!.getAttribute('href')).toBe('blob:attachment-2')
+      expect(container.querySelector('.bc-attachment-file')!.getAttribute('aria-label')).toBe('View notes.txt')
       expect(container.querySelector('.bc-message-text')).toBeNull()
       expect(container.querySelector<HTMLButtonElement>('.bc-send')!.disabled).toBe(true)
     } finally {
@@ -520,6 +520,85 @@ describe('native Beast chat', () => {
     } finally {
       await act(() => root.unmount()); container.remove()
       URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl
+    }
+  })
+
+  test('attachment buttons open modal previews, close with Escape, and restore focus and page scrolling', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: MessageThread} = await import('../packages/chat/src/components/MessageThread.btsx')
+    const identity = {id: 'you', fid: 'you', name: 'You'}
+    const memory = createMemoryAdapter({identity, conversations: [], messages: {alice: [{_id: 'files', senderId: 'you', receiverId: 'alice', content: '', createdAt: '', readAt: null, attachments: [
+      {storageId: 'image', fileName: 'photo.png', fileType: 'image/png', fileSize: 100, url: 'https://example.com/photo.png'},
+      {storageId: 'notes', fileName: 'notes.txt', fileType: 'text/plain', fileSize: 200, url: 'https://example.com/notes.txt'},
+    ]}]}})
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    const overflow = browser.document.body.style.overflow
+    browser.document.body.style.overflow = 'auto'
+    try {
+      await act(() => root.render(MessageThread, {adapter: memory, identity, fid: 'alice', smoothScroll: false}))
+      const imageButton = container.querySelector<HTMLButtonElement>('[aria-label="View photo.png"]')!
+      imageButton.focus()
+      await act(() => imageButton.click())
+      const dialog = container.querySelector('dialog')!
+      expect(dialog.open).toBe(true)
+      expect(dialog.getAttribute('aria-label')).toBe('Attachment viewer: photo.png')
+      expect(dialog.querySelector('.bc-viewer-image')!.getAttribute('src')).toBe('https://example.com/photo.png')
+      expect([...dialog.querySelectorAll('.bc-viewer-actions button')].map(button => button.getAttribute('aria-label'))).toEqual(['Download attachment', 'Close attachment viewer'])
+      expect(browser.document.body.style.overflow).toBe('hidden')
+      const cancel = new browser.Event('cancel', {cancelable: true})
+      await act(() => dialog.dispatchEvent(cancel))
+      expect(cancel.defaultPrevented).toBe(true)
+      expect(container.querySelector('dialog')).toBeNull()
+      expect(browser.document.activeElement === imageButton).toBe(true)
+      expect(browser.document.body.style.overflow).toBe('auto')
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="View notes.txt"]')!.click())
+      expect(container.querySelector('.bc-viewer-fallback')!.textContent).toContain('Preview is not available')
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close attachment viewer"]')!.click())
+      expect(container.querySelector('dialog')).toBeNull()
+    } finally { await act(() => root.unmount()); container.remove(); browser.document.body.style.overflow = overflow }
+  })
+  test('viewer downloads use the original filename, handle failed requests, and release temporary URLs', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: Viewer} = await import('../packages/chat/src/components/AttachmentViewer.btsx')
+    const originalFetch = globalThis.fetch
+    const createUrl = URL.createObjectURL, revokeUrl = URL.revokeObjectURL
+    const revoked: string[] = []
+    const saved: {url: string; name: string}[] = []
+    let succeed = false
+    let signal: AbortSignal | undefined
+    globalThis.fetch = (async (_input: unknown, options: RequestInit) => {
+      signal = options.signal as AbortSignal
+      return new Response(succeed ? 'File bytes' : 'Unavailable', {status: succeed ? 200 : 503})
+    }) as typeof fetch
+    URL.createObjectURL = () => 'blob:download-fixture'
+    URL.revokeObjectURL = url => { revoked.push(url) }
+    const captureDownload = (event: import('happy-dom').Event) => {
+      const link = event.target as import('happy-dom').HTMLAnchorElement
+      if (link.tagName === 'A' && link.download) { event.preventDefault(); expect(link.closest('dialog')).not.toBeNull(); saved.push({url: link.href, name: link.download}) }
+    }
+    browser.document.addEventListener('click', captureDownload)
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    const clickDownload = async () => { await act(async () => { container.querySelector<HTMLButtonElement>('[aria-label="Download attachment"]')!.click(); for (let i = 0; i < 8; i++) await Promise.resolve() }) }
+    try {
+      await act(() => root.render(Viewer, {attachment: {storageId: 'file', fileName: 'original-name.txt', fileType: 'text/plain', fileSize: 10, url: 'https://storage.example/file'}, onClose: () => {}}))
+      await clickDownload()
+      expect(container.querySelector('[role=alert]')!.textContent).toContain('Could not download')
+      expect(saved.length).toBe(0)
+      succeed = true
+      await clickDownload()
+      expect(container.querySelector('[role=alert]')).toBeNull()
+      expect(saved).toEqual([{url: 'blob:download-fixture', name: 'original-name.txt'}])
+      await act(() => root.unmount())
+      expect(signal!.aborted).toBe(true)
+      expect(revoked).toEqual(['blob:download-fixture'])
+    } finally {
+      await act(() => root.unmount()); container.remove()
+      browser.document.removeEventListener('click', captureDownload)
+      globalThis.fetch = originalFetch; URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl
     }
   })
 

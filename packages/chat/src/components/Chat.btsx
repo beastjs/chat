@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'octane'
 import { useConversations, useViewportHeight } from '../hooks'
 import MessageThread from './MessageThread.btsx'
-import Icon from './Icon.btsx'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
+import Icon from "../../../../src/lib/icons/Icon.btsx";
 
 props { adapter, identity, initialConversationFid = null, selectedFid, onSelectConversation, pageSize = 50, smoothScroll = true, theme = 'system' }: { adapter: ChatAdapter; identity: ChatIdentity; initialConversationFid?: string | null; selectedFid?: string | null; onSelectConversation?: (fid: string | null) => void; pageSize?: number; smoothScroll?: boolean; theme?: 'light' | 'dark' | 'system' }
 setup
@@ -57,7 +57,7 @@ section.bc-chat(class={active ? 'bc-selected' : ''} data-theme={theme} data-nati
       fragment
         header.bc-thread-header
           button.bc-back(type="button" aria-label="Back to conversations" onClick={() => select(null)})
-            Icon(name="back")
+            Icon(name="arrow-left")
           span.bc-avatar.bc-header-avatar(aria-hidden="true") #{(active.otherUser?.displayName ?? active.otherUser?.name ?? 'C').slice(0, 1).toUpperCase()}
           div.bc-thread-identity
             h2 #{active.otherUser?.displayName ?? active.otherUser?.name ?? 'Conversation'}

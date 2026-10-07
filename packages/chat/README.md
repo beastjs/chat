@@ -69,7 +69,7 @@ The composer shows an attachment picker when `adapter.upload` is available. Sele
 
 Implement `upload(file, signal)` to return `{storageId, fileName, fileType, fileSize, url}`. The Convex adapter accepts an optional `upload` function in its options; the host owns storage endpoints, authentication, and file validation. Forward the supplied abort signal to network requests. The memory adapter provides local uploads for the playground.
 
-Sent images render as previews; other files show their name and size with a download link. Attachment-only messages show file names in the inbox preview.
+Sent images render as thumbnails; other files show their name and size. Click an attachment to open a fullscreen viewer with Download and Close controls at the top right. Images, video, audio, and PDFs have previews; other formats show a file summary. Escape closes the viewer and restores focus to the attachment. Downloads retain the original file name. Attachment-only messages show file names in the inbox preview.
 
 ## Registry primitives and scrolling
 
@@ -98,7 +98,7 @@ The stylesheet includes a Tailwind 4 `@source` directive for the packaged compon
 
 ## Remaining source features
 
-Dock/window, guest bootstrap and account merge, assistant streaming and markdown, image modal, voice recording/playback, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
+Dock/window, guest bootstrap and account merge, assistant streaming and markdown, voice recording/playback, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
 
 The playground's `SwipeRow` and `@/lib/icons` stay in the demo app. `PulseLike` ships at `@beast-chat/chat/pulse-like` with self-contained icons. Chat supplies its `liked` and `count` from adapter messages; controlled usage keeps the adapter authoritative when a mutation fails.
 

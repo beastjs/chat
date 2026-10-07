@@ -1,0 +1,102 @@
+import { useLayoutEffect, useRef, useState } from 'octane'
+import type { Attachment } from '../core/types'
+import { formatFileSize } from '../core/attachment'
+import Icon from "../../../../src/lib/icons/Icon.btsx";
+
+props { attachment, onClose }: { attachment: Attachment; onClose: () => void }
+setup
+  const dialog = useRef<HTMLDialogElement | null>(null);
+  const downloadAbort = useRef<AbortController | null>(null);
+  const downloadUrl = useRef<string | null>(null);
+  const downloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busy = useRef(false);
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const image = attachment.fileType.startsWith('image/');
+  const video = attachment.fileType.startsWith('video/');
+  const audio = attachment.fileType.startsWith('audio/');
+  const pdf = attachment.fileType === 'application/pdf';
+  const releaseDownload = () => {
+    if (downloadUrl.current) URL.revokeObjectURL(downloadUrl.current);
+    downloadUrl.current = null;
+    if (downloadTimer.current !== null) clearTimeout(downloadTimer.current);
+    downloadTimer.current = null;
+  };
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    if (!node) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    node.showModal();
+    node.querySelector<HTMLButtonElement>('[aria-label="Close attachment viewer"]')?.focus();
+    return () => {
+      downloadAbort.current?.abort();
+      releaseDownload();
+      node.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus?.({ preventScroll: true });
+    };
+  }, []);
+  const download = async () => {
+    if (busy.current || !attachment.url) return;
+    busy.current = true;
+    setDownloading(true);
+    setError(null);
+    const controller = new AbortController();
+    downloadAbort.current = controller;
+    try {
+      const response = await fetch(attachment.url, { signal: controller.signal });
+      if (!response.ok) throw new Error('Could not download this attachment. Please try again.');
+      const blob = await response.blob();
+      controller.signal.throwIfAborted();
+      releaseDownload();
+      const url = URL.createObjectURL(blob);
+      downloadUrl.current = url;
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = attachment.fileName;
+      dialog.current?.append(link);
+      link.click();
+      link.remove();
+      downloadTimer.current = setTimeout(releaseDownload, 1000);
+    } catch (cause) {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not download this attachment. Please try again.');
+    } finally {
+      busy.current = false;
+      if (!controller.signal.aborted) setDownloading(false);
+    }
+  };
+
+dialog.bc-attachment-viewer(ref={dialog} aria-label={'Attachment viewer: ' + attachment.fileName} onCancel={event => { event.preventDefault(); onClose(); }})
+  header.bc-viewer-toolbar
+    div.bc-viewer-title
+      strong #{attachment.fileName}
+      span #{formatFileSize(attachment.fileSize)}
+    div.bc-viewer-actions
+      button.bc-viewer-control(type="button" aria-label={downloading ? 'Downloading attachment' : 'Download attachment'} title="Download" disabled={downloading} onClick={() => void download()})
+        Icon(name="download")
+        span #{downloading ? 'Downloading…' : 'Download'}
+      button.bc-viewer-control.bc-viewer-close(type="button" aria-label="Close attachment viewer" title="Close" onClick={onClose})
+        Icon(name="close")
+  div.bc-viewer-content
+    if attachment.url && !previewFailed && image
+      img.bc-viewer-image(src={attachment.url} alt={attachment.fileName} onError={() => setPreviewFailed(true)})
+    elseif attachment.url && !previewFailed && video
+      video.bc-viewer-video(src={attachment.url} controls playsInline preload="metadata" aria-label={attachment.fileName} onError={() => setPreviewFailed(true)})
+    elseif attachment.url && !previewFailed && audio
+      audio.bc-viewer-audio(src={attachment.url} controls preload="metadata" aria-label={attachment.fileName} onError={() => setPreviewFailed(true)})
+    elseif attachment.url && pdf
+      iframe.bc-viewer-document(src={attachment.url} title={attachment.fileName})
+    else
+      div.bc-viewer-fallback
+        Icon(name="file")
+        h2 #{attachment.fileName}
+        p #{previewFailed ? 'This preview could not be loaded.' : 'Preview is not available for this file.'}
+        p Use Download to save the attachment.
+  if error
+    div.bc-viewer-error(role="alert")
+      p #{error}
+      if attachment.url
+        a(href={attachment.url} target="_blank" rel="noopener noreferrer") Open original file
