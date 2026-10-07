@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "./styles/theme.css";
 @import "@beast-chat/chat/styles.css";
 @font-face { font-family:'Geist Variable'; font-style:normal; font-weight:100 900; font-display:swap; src:url('@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2-variations'); }
 @font-face { font-family:'Geist Mono Variable'; font-style:normal; font-weight:100 900; font-display:swap; src:url('@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2') format('woff2-variations'); }

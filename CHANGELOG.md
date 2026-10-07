@@ -23,3 +23,4 @@ All notable changes to `chat` will be recorded here.
 - Repoint `beast-ui.json` lib/styles targets into `packages/chat` so future registry installs land in the shippable package.
 - Add controlled `selectedFid` selection with `onSelectConversation(fid | null)` host routing (back reports `null`) and a `smoothScroll` opt-out on `Chat`/`MessageThread`; cover both with native runtime tests.
 - Document consumer install, stylesheet/Tailwind setup, controlled selection, and the small-history limit of the compatibility Convex adapter.
+- Match the packaged `@layer components` block to the canonical beast-ui bubble preview (`bg-positive/10`, `bg-surface`); add beast-ui's `surface`/`positive` tokens to the playground theme and wire it so the build resolves all preview utilities.

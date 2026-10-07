@@ -29,6 +29,8 @@ Import `@beast-chat/chat/styles.css` once from your app stylesheet or entry. Sty
 @import "@beast-chat/chat/styles.css";
 ```
 
+The registry primitives (`.cn-*`) follow the beast-ui theme, including its `surface` and `positive` tokens alongside the standard ones (`primary`, `secondary`, `muted`, `popover`, `sidebar-border`, …); hosts need all of them for the exact preview look.
+
 `Chat`, `MessageThread`, `Composer`, and `ChatIcon` are exported from the root. Finer entry points exist for `./composer`, `./message-thread`, `./icon`, `./hooks`, `./core`, `./memory`, `./convex`, `./bubble`, `./message-scroller`, and `./button`. Their authored sources are packaged with the library, with no application aliases. The host owns authentication and navigation. Keep adapter/identity objects stable. To switch accounts or adapters, remount Chat with a new key, preventing old conversation state from carrying over.
 
 ## Selection

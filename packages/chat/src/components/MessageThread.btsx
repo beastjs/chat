@@ -2,8 +2,9 @@ import { useEffect, useState } from 'octane'
 import { useMessages } from '../hooks'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
 import Composer from './Composer.btsx'
-import Bubble, { BubbleContent } from './ui/bubble.btsx'
+import Bubble, { BubbleContent, BubbleReactions } from './ui/bubble.btsx'
 import MessageScroller, { MessageScrollerProvider, MessageScrollerViewport, MessageScrollerContent, MessageScrollerItem, MessageScrollerButton, useMessageScroller } from './ui/message-scroller.btsx'
+import PulseLike from "../../../../src/components/ui/pulse-like.btsx";
 
 component ThreadBody
   props { adapter, identity, fid, pageSize }: { adapter: ChatAdapter; identity: ChatIdentity; fid: string; pageSize: number }
@@ -40,6 +41,10 @@ component ThreadBody
               Bubble(variant={message.senderId === identity.id ? 'default' : 'secondary'} align={message.senderId === identity.id ? 'end' : 'start'} className="bc-bubble")
                 BubbleContent(className="bc-bubble-content")
                   p.bc-message-text #{message.content}
+                BubbleReactions
+                  if adapter.toggleLike
+                    PulseLike(size={12} showCount={(message.likes?.length ?? 0) >= 2} onChange={(liked, count) => void react(message._id)})
+                    // button(type="button" aria-label="Like message" aria-pressed={message.likes?.some(like => like.userId === identity.id) ?? false} onClick={() => void react(message._id)}) #{'♡' + (message.likes?.length || '')}
               each attachment in message.attachments ?? [] key attachment.storageId
                 if attachment.url
                   a.bc-attachment(href={attachment.url} target="_blank" rel="noopener noreferrer") #{attachment.fileName}
@@ -47,8 +52,6 @@ component ThreadBody
                 time(datetime={message.createdAt}) #{message.createdAt.slice(11, 16)}
                 if message.senderId === identity.id
                   span #{message.readAt ? 'Read' : 'Sent'}
-                if adapter.toggleLike
-                  button.bc-reaction(type="button" aria-label="Like message" aria-pressed={message.likes?.some(like => like.userId === identity.id) ?? false} onClick={() => void react(message._id)}) #{'♡ ' + (message.likes?.length || '')}
       MessageScrollerButton(className="bc-scroll-button")
     if actionError
       p.bc-error(role="alert") #{actionError}
