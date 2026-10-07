@@ -1,0 +1,5 @@
+export {default as Chat} from './components/Chat.btsx'
+export {default as MessageThread} from './components/MessageThread.btsx'
+export {default as Composer} from './components/Composer.btsx'
+export {default as ChatIcon} from './components/Icon.btsx'
+export * from './core'

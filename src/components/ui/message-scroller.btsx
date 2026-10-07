@@ -1,0 +1,7 @@
+import MessageScroller from '@beast-chat/chat/message-scroller'
+import type { ComponentProps } from 'octane'
+module
+  export { MessageScrollerProvider, MessageScrollerViewport, MessageScrollerContent, MessageScrollerItem, MessageScrollerButton, useMessageScroller, useMessageScrollerScrollable, useMessageScrollerVisibility } from '@beast-chat/chat/message-scroller';
+  export type { MessageScrollerScrollOptions, MessageScrollerScrollable, MessageScrollerVisibilityState } from '@beast-chat/chat/message-scroller';
+props { ...props }: ComponentProps<typeof MessageScroller>
+MessageScroller({...props})

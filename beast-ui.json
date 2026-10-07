@@ -1,0 +1,12 @@
+{
+  "registry": "https://beast-ui-registry.beastjs.workers.dev/r",
+  "paths": {
+    "ui": "packages/chat/src/components/ui",
+    "lib": "packages/chat/src/lib",
+    "styles": "packages/chat/src/styles"
+  },
+  "aliases": {
+    "utils": "cn"
+  },
+  "packageManager": "bun"
+}

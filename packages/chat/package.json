@@ -1,0 +1,47 @@
+{
+  "name": "@beast-chat/chat",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Composable native Beast/Octane chat with pluggable data adapters",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./memory": "./src/adapters/memory.ts",
+    "./convex": "./src/adapters/convex.ts",
+    "./styles.css": "./src/styles.css",
+    "./composer": "./src/components/Composer.btsx",
+    "./message-thread": "./src/components/MessageThread.btsx",
+    "./icon": "./src/components/Icon.btsx",
+    "./hooks": "./src/hooks.ts",
+    "./bubble": "./src/components/ui/bubble.btsx",
+    "./message-scroller": "./src/components/ui/message-scroller.btsx",
+    "./button": "./src/components/ui/button.btsx"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "octane": "^0.8.0",
+    "convex": "^1.46.0",
+    "@octanejs/base-ui": "^0.1.59"
+  },
+  "peerDependenciesMeta": {
+    "convex": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.4.0",
+    "lenis": "^1.3.26"
+  }
+}

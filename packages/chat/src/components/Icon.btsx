@@ -1,0 +1,20 @@
+props { name, className }: { name: 'send' | 'back' | 'search' | 'chat' | 'moon' | 'sun' | 'check'; className?: string }
+svg(className={className} viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true")
+  if name === 'send'
+    path(d="M12 19V5m-6 6 6-6 6 6")
+  elseif name === 'back'
+    path(d="m14 6-6 6 6 6M8 12h12")
+  elseif name === 'search'
+    fragment
+      circle(cx="10.5" cy="10.5" r="6.5")
+      path(d="m16 16 4 4")
+  elseif name === 'chat'
+    path(d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 4V6a2 2 0 0 1 2-2Z")
+  elseif name === 'moon'
+    path(d="M20 15.5A9 9 0 0 1 8.5 4 9 9 0 1 0 20 15.5Z")
+  elseif name === 'sun'
+    fragment
+      circle(cx="12" cy="12" r="4")
+      path(d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5")
+  else
+    path(d="m4 12 5 5L20 6")

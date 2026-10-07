@@ -1,0 +1,73 @@
+import { useMemo, useState } from 'octane'
+import { useConversations, useViewportHeight } from '../hooks'
+import MessageThread from './MessageThread.btsx'
+import Icon from './Icon.btsx'
+import type { ChatAdapter, ChatIdentity } from '../core/adapter'
+
+props { adapter, identity, initialConversationFid = null, selectedFid, onSelectConversation, pageSize = 50, smoothScroll = true, theme = 'system' }: { adapter: ChatAdapter; identity: ChatIdentity; initialConversationFid?: string | null; selectedFid?: string | null; onSelectConversation?: (fid: string | null) => void; pageSize?: number; smoothScroll?: boolean; theme?: 'light' | 'dark' | 'system' }
+setup
+  const { data: conversations, loading, error } = useConversations(adapter);
+  const viewportHeight = useViewportHeight();
+  const [internalSelected, setInternalSelected] = useState<string | null>(initialConversationFid);
+  const controlled = selectedFid !== undefined;
+  const selected = controlled ? selectedFid : internalSelected;
+  const select = (fid: string | null) => { if (!controlled) setInternalSelected(fid); onSelectConversation?.(fid); };
+  const [query, setQuery] = useState('');
+  const active = conversations.find(item => (item.otherUser?.proId ?? item.otherUser?.fid) === selected);
+  const search = query.toLowerCase().trim();
+  const filtered = useMemo(() => conversations.filter(item => (item.otherUser?.displayName ?? item.otherUser?.name ?? item.otherUser?.email ?? '').toLowerCase().includes(search)), [conversations, search]);
+
+section.bc-chat(class={active ? 'bc-selected' : ''} data-theme={theme} data-native-transitions={typeof document !== 'undefined' && typeof document.startViewTransition === 'function' ? 'true' : 'false'} style={viewportHeight ? { '--bc-viewport-height': viewportHeight + 'px' } : undefined} aria-label="Chat")
+  aside.bc-sidebar
+    header.bc-sidebar-header
+      div
+        h3 Inbox
+      span.bc-count #{conversations.length}
+    div.bc-search-field
+      Icon(name="search")
+      input.bc-search(type="search" aria-label="Search conversations" placeholder="Search conversations" value={query} onInput={event => setQuery(event.currentTarget.value)})
+    p.bc-list-label Conversations
+    if loading
+      p.bc-state(role="status") Loading conversations…
+    if error
+      p.bc-error(role="alert") #{error}
+    nav.bc-conversations(aria-label="Conversations")
+      each conversation in filtered key conversation.otherUserId
+        scope
+          setup
+            const fid = conversation.otherUser?.proId ?? conversation.otherUser?.fid;
+            const name = conversation.otherUser?.displayName ?? conversation.otherUser?.name ?? 'Unknown participant';
+          button.bc-conversation(type="button" disabled={!fid} aria-current={selected === fid ? 'true' : undefined} onClick={() => { if (fid) select(fid); }})
+            span.bc-avatar(aria-hidden="true") #{name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}
+            span.bc-conversation-text
+              strong #{name}
+              span #{conversation.lastMessage.content || 'Start a conversation'}
+            if conversation.unreadCount > 0
+              span.bc-unread(aria-label={conversation.unreadCount + ' unread messages'}) #{conversation.unreadCount}
+    if !loading && !error && filtered.length === 0
+      p.bc-state #{query ? 'No matching conversations.' : 'No conversations yet.'}
+    footer.bc-profile
+      span.bc-avatar(aria-hidden="true") #{identity.name.slice(0, 1).toUpperCase()}
+      div
+        strong #{identity.name}
+        p Your conversations
+      span.bc-profile-dot(aria-hidden="true")
+  div.bc-main
+    if active && selected
+      fragment
+        header.bc-thread-header
+          button.bc-back(type="button" aria-label="Back to conversations" onClick={() => select(null)})
+            Icon(name="back")
+          span.bc-avatar.bc-header-avatar(aria-hidden="true") #{(active.otherUser?.displayName ?? active.otherUser?.name ?? 'C').slice(0, 1).toUpperCase()}
+          div.bc-thread-identity
+            h2 #{active.otherUser?.displayName ?? active.otherUser?.name ?? 'Conversation'}
+            p #{active.otherUser?.email ?? ''}
+          span.bc-thread-label Conversation
+        MessageThread(key={selected} adapter={adapter} identity={identity} fid={selected} pageSize={pageSize} smoothScroll={smoothScroll})
+    else
+      div.bc-empty
+        span.bc-empty-icon
+          Icon(name="chat")
+        p.bc-eyebrow A little space to connect
+        h2 Good conversations start here.
+        p Select a conversation. Make yourself at home.

@@ -1,0 +1,20 @@
+import { useState } from 'octane'
+import { Chat, ChatIcon as Icon } from '@beast-chat/chat'
+import { adapter, identity } from './demo'
+
+setup const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+main.playground(data-theme={theme})
+  header.playground-header
+    div.playground-brand
+      span.brand-mark(aria-hidden="true")
+        Icon(name="chat")
+      span.brand-name Beast
+        span Chat
+      span.brand-divider(aria-hidden="true")
+      span.brand-workspace Workspace
+    div.playground-actions
+      span.demo-badge Local playground
+      button.theme-toggle(type="button" aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} onClick={() => setTheme(current => current === 'light' ? 'dark' : 'light')})
+        Icon(name={theme === 'light' ? 'moon' : 'sun'})
+  Chat(adapter={adapter} identity={identity} initialConversationFid="demo-support" pageSize={50} theme={theme})

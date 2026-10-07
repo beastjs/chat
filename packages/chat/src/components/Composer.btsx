@@ -1,0 +1,47 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'octane'
+import Icon from './Icon.btsx'
+import type { ChatAdapter } from '../core/adapter'
+
+props { adapter, fid, onSent }: { adapter: ChatAdapter; fid: string; onSent?: () => void }
+setup
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    const node = input.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = Math.min(node.scrollHeight || 24, 120) + 'px';
+  }, [draft]);
+  const busy = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const send = async () => {
+    const content = draft.trim();
+    if (!content || busy.current) return;
+    busy.current = true;
+    setSending(true);
+    setError(null);
+    try {
+      await adapter.sendMessage(fid, content);
+      if (!alive.current) return;
+      setDraft(current => current.trim() === content ? '' : current);
+      onSent?.();
+      input.current?.focus({ preventScroll: true });
+    } catch (cause) {
+      if (alive.current) setError(cause instanceof Error ? cause.message : 'Message failed to send');
+    } finally {
+      busy.current = false;
+      if (alive.current) setSending(false);
+    }
+  };
+
+form.bc-composer(onSubmit={event => { event.preventDefault(); void send(); }})
+  div.bc-composer-field
+    textarea(ref={input} rows={1} aria-label="Message" placeholder="Message…" autoComplete="off" enterKeyHint="send" value={draft} onInput={event => setDraft(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); } }})
+  button.bc-send(type="submit" aria-label={sending ? 'Sending message' : 'Send message'} onPointerDown={event => event.preventDefault()} disabled={sending || !draft.trim()})
+    Icon(name="send")
+    span #{sending ? 'Sending' : 'Send'}
+  if error
+    p.bc-error(role="alert") #{error}

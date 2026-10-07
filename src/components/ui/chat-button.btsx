@@ -1,0 +1,6 @@
+import Button from '@beast-chat/chat/button.btsx'
+import type { ComponentProps } from 'octane'
+module
+  export { buttonVariants } from '@beast-chat/chat/button';
+props { ...props }: ComponentProps<typeof Button>
+Button({...props})

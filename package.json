@@ -1,0 +1,45 @@
+{
+  "name": "chat",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview",
+    "typecheck": "tsrx-tsc --noEmit",
+    "check": "bun run typecheck && bun test && bun run build",
+    "test": "bun test",
+    "icons:build": "bun scripts/build-icons.ts --svg src/lib/icons/svg --out src/lib/icons/icons.ts",
+    "icons:check": "bun scripts/build-icons.ts --svg src/lib/icons/svg --out src/lib/icons/icons.ts --check"
+  },
+  "dependencies": {
+    "@beast-chat/chat": "workspace:*",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@octanejs/base-ui": "0.1.59",
+    "@octanejs/motion": "0.1.58",
+    "beast-tsrx": "0.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cn": "^0.4.0",
+    "convex": "^1.46.0",
+    "octane": "0.8.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@octanejs/rsbuild-plugin": "0.1.58",
+    "@rsbuild/core": "^2.2.2",
+    "@rsbuild/plugin-tailwindcss": "^2.0.3",
+    "@tsrx/typescript-plugin": "0.6.1",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.2.0",
+    "happy-dom": "^20.14.5",
+    "svgo": "^4.1.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "@beast-chat/chat/styles.css";
+@font-face { font-family:'Geist Variable'; font-style:normal; font-weight:100 900; font-display:swap; src:url('@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2-variations'); }
+@font-face { font-family:'Geist Mono Variable'; font-style:normal; font-weight:100 900; font-display:swap; src:url('@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2') format('woff2-variations'); }
+:root { font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif; background:#f7f7f7; color:#181818; font-synthesis:none; -webkit-font-smoothing:antialiased; }
+* { box-sizing:border-box; }
+body { margin:0; }
+button { -webkit-tap-highlight-color:transparent; }
+.playground { min-height:100dvh; padding:0 28px 28px; background:#f7f7f7; }
+.playground-header { display:flex; justify-content:space-between; align-items:center; height:84px; max-width:1320px; margin:auto; gap:16px; }
+.playground-brand,.playground-actions { display:flex; align-items:center; gap:12px; }
+.brand-mark { display:grid; place-items:center; width:36px; height:36px; background:#181818; color:white; border-radius:11px; }
+.brand-mark svg { width:18px; height:18px; }
+.brand-name { font-size:17px; font-weight:620; letter-spacing:-.05em; }
+.brand-name > span { color:#ef8734; margin-left:4px; }
+.brand-divider { width:1px; height:18px; background:#d8d8d8; margin:0 5px; }
+.brand-workspace { font-size:12px; color:#777; }
+.demo-badge { font:10px 'Geist Mono Variable',monospace; color:#777; padding:7px 10px; border:1px solid #dedede; border-radius:7px; }
+.theme-toggle { display:grid; place-items:center; width:44px; height:44px; padding:0; color:inherit; background:transparent; border:1px solid transparent; border-radius:12px; cursor:pointer; }
+.theme-toggle:hover { background:#ececec; }
+.theme-toggle:focus-visible { outline:2px solid #ef8734; outline-offset:2px; }
+.playground > .bc-chat { max-width:1320px; margin:auto; }
+.playground[data-theme=dark] { background:#101010; color:#eee; color-scheme:dark; }
+.playground[data-theme=dark] .brand-mark { background:#eee; color:#181818; }
+.playground[data-theme=dark] .brand-divider { background:#353535; }
+.playground[data-theme=dark] .demo-badge { border-color:#353535; }
+.playground[data-theme=dark] .theme-toggle:hover { background:#252525; }
+@media(max-width:720px) {
+  .playground { padding:0; min-height:0; }
+  .playground-header { height:calc(64px + env(safe-area-inset-top)); padding:max(10px,env(safe-area-inset-top)) 16px 10px; border-bottom:1px solid #e6e6e6; }
+  .playground > .bc-chat { --bc-mobile-offset:calc(64px + env(safe-area-inset-top)); }
+  .brand-name { font-size:16px; }
+  .brand-divider,.brand-workspace,.demo-badge { display:none; }
+  .playground[data-theme=dark] .playground-header { border-color:#303030; }
+}

@@ -1,0 +1,6 @@
+import Bubble from '@beast-chat/chat/bubble.btsx'
+import type { ComponentProps } from 'octane'
+module
+  export { BubbleGroup, BubbleContent, BubbleReactions } from '@beast-chat/chat/bubble';
+props { ...props }: ComponentProps<typeof Bubble>
+Bubble({...props})
