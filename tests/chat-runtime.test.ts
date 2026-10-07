@@ -441,6 +441,185 @@ describe('native Beast chat', () => {
     }
     expect(revoked).toEqual(['blob:attachment-1', 'blob:attachment-2'])
   })
+  test('previews and sends audio-only attachments, preserves viewer access, and releases previews', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: MessageThread} = await import('../packages/chat/src/components/MessageThread.btsx')
+    const identity = {id: 'you', fid: 'you', name: 'You'}
+    const memory = createMemoryAdapter({identity, conversations: [{otherUserId: 'alice', otherUser: {fid: 'alice', name: 'Alice', email: null, photoUrl: null}, lastMessage: {content: '', createdAt: ''}, unreadCount: 0, hasMessages: false}]})
+    const createUrl = URL.createObjectURL, revokeUrl = URL.revokeObjectURL
+    const revoked: string[] = []
+    let sequence = 0
+    URL.createObjectURL = () => `blob:audio-${++sequence}`
+    URL.revokeObjectURL = url => { revoked.push(url) }
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    try {
+      await act(() => root.render(MessageThread, {adapter: memory, identity, fid: 'alice', smoothScroll: false}))
+      const picker = container.querySelector('input[type=file]')!
+      Object.defineProperty(picker, 'files', {configurable: true, value: [new File(['audio'], 'song.mp3', {type: 'audio/mpeg'}), new File(['audio'], 'memo.m4a')]})
+      await act(() => picker.dispatchEvent(new browser.Event('change', {bubbles: true})))
+      expect(container.querySelectorAll('.bc-pending-file audio').length).toBe(2)
+      expect(container.querySelector('audio')!.getAttribute('preload')).toBe('metadata')
+      expect(container.querySelector('.bc-audio-toggle')).not.toBeNull()
+      expect(container.querySelector('.bc-pending-file .bc-file-info')).toBeNull()
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Remove song.mp3"]')!.click())
+      expect(revoked).toEqual(['blob:audio-1'])
+      await act(async () => {
+        container.querySelector('form')!.dispatchEvent(new browser.Event('submit', {bubbles: true, cancelable: true}))
+        for (let i = 0; i < 5; i++) await Promise.resolve()
+      })
+      expect(container.querySelectorAll('.bc-pending-file').length).toBe(0)
+      const audio = container.querySelector('.bc-attachment-audio audio')!
+      expect(audio.getAttribute('src')).toBe('blob:audio-3')
+      expect(audio.getAttribute('aria-label')).toBe('Play Voice message')
+      expect(container.querySelector('.bc-attachment-audio')!.textContent).not.toContain('memo.m4a')
+      expect(audio.closest('button')).toBeNull()
+      expect(revoked).toEqual(['blob:audio-1', 'blob:audio-2'])
+      await act(() => audio.dispatchEvent(new browser.Event('error')))
+      expect(container.querySelector('.bc-audio-error')!.textContent).toContain('unavailable')
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="View memo.m4a"]')!.click())
+      expect(container.querySelector('.bc-viewer-audio')!.getAttribute('src')).toBe('blob:audio-3')
+      expect(container.querySelector('[aria-label="Download attachment"]')).not.toBeNull()
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close attachment viewer"]')!.click())
+      await act(() => picker.dispatchEvent(new browser.Event('change', {bubbles: true})))
+      await act(() => root.unmount())
+      expect(revoked).toEqual(['blob:audio-1', 'blob:audio-2', 'blob:audio-4', 'blob:audio-5'])
+    } finally {
+      await act(() => root.unmount()); container.remove(); memory.dispose()
+      URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl
+    }
+    expect(revoked).toContain('blob:audio-3')
+  })
+  test('compact audio controls play, seek, rewind, and stop playback on unmount', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: AudioPlayer} = await import('../packages/chat/src/components/AudioPlayer.btsx')
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    let pauses = 0
+    try {
+      await act(() => root.render(AudioPlayer, {src: 'blob:voice', name: 'Voice message'}))
+      const audio = container.querySelector('audio')!
+      let paused = true
+      Object.defineProperties(audio, {
+        duration: {value: 65, configurable: true},
+        paused: {get: () => paused, configurable: true},
+        play: {value: async () => { paused = false; audio.dispatchEvent(new browser.Event('play')) }},
+        pause: {value: () => { paused = true; pauses++; audio.dispatchEvent(new browser.Event('pause')) }},
+      })
+      await act(() => audio.dispatchEvent(new browser.Event('loadedmetadata')))
+      const seek = container.querySelector('input[type=range]')!
+      expect(seek.disabled).toBe(false)
+      expect(container.querySelector('.bc-audio-times')!.textContent).toContain('1:05')
+      await act(async () => { container.querySelector<HTMLButtonElement>('.bc-audio-toggle')!.click(); await Promise.resolve() })
+      expect(container.querySelector('.bc-audio-toggle')!.getAttribute('aria-label')).toBe('Pause Voice message')
+      seek.value = '30'
+      await act(() => seek.dispatchEvent(new browser.Event('input', {bubbles: true})))
+      expect(audio.currentTime).toBe(30)
+      expect(seek.getAttribute('aria-valuetext')).toBe('0:30 of 1:05')
+      await act(() => container.querySelector<HTMLButtonElement>('.bc-audio-toggle')!.click())
+      expect(pauses).toBe(1)
+      await act(() => audio.dispatchEvent(new browser.Event('ended')))
+      expect(audio.currentTime).toBe(0)
+      expect(seek.value).toBe('0')
+      await act(() => root.unmount())
+      expect(pauses).toBe(2)
+    } finally { await act(() => root.unmount()); container.remove() }
+  })
+  test('plus options record, cancel, and send microphone audio with cleanup', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: Composer} = await import('../packages/chat/src/components/Composer.btsx')
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    const recorderDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'MediaRecorder')
+    const createUrl = URL.createObjectURL, revokeUrl = URL.revokeObjectURL
+    let stoppedTracks = 0
+    let rejectPermission = false
+    let latePermission: ((stream: unknown) => void) | undefined
+    let delayPermission = false
+    const stream = {getTracks: () => [{stop: () => { stoppedTracks++ }}]}
+    class Recorder {
+      static isTypeSupported(type: string) { return type === 'audio/mp4' }
+      mimeType: string
+      state = 'inactive'
+      ondataavailable: ((event: {data: Blob}) => void) | null = null
+      onstop: (() => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(_stream: unknown, options: {mimeType: string}) { this.mimeType = options.mimeType }
+      start() { this.state = 'recording' }
+      stop() {
+        this.state = 'inactive'
+        queueMicrotask(() => { this.ondataavailable?.({data: new Blob(['voice'], {type: this.mimeType})}); this.onstop?.() })
+      }
+    }
+    Object.defineProperty(globalThis, 'MediaRecorder', {configurable: true, value: Recorder})
+    Object.defineProperty(globalThis, 'navigator', {configurable: true, value: {mediaDevices: {getUserMedia: async () => {
+      if (rejectPermission) throw new DOMException('Denied', 'NotAllowedError')
+      if (delayPermission) return new Promise(resolve => { latePermission = resolve })
+      return stream
+    }}}})
+    URL.createObjectURL = () => 'blob:recorded-voice'
+    const revoked: string[] = []
+    URL.revokeObjectURL = url => { revoked.push(url) }
+    const uploaded: File[] = []
+    const sent: unknown[][] = []
+    const adapter: ChatAdapter = {
+      subscribeConversations: () => () => {}, subscribeMessages: () => () => {},
+      upload: async file => { uploaded.push(file); return {storageId: 'voice', fileName: file.name, fileType: file.type, fileSize: file.size, url: 'blob:uploaded-voice'} },
+      sendMessage: async (...args) => { sent.push(args) },
+    }
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    const record = async () => {
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Add attachments"]')!.click())
+      expect(container.querySelector('.bc-attachment-options')!.textContent).toContain('Photos and videos')
+      await act(async () => { [...container.querySelectorAll<HTMLButtonElement>('.bc-attachment-options button')].find(button => button.textContent!.includes('Record audio'))!.click(); for (let i = 0; i < 5; i++) await Promise.resolve() })
+    }
+    try {
+      await act(() => root.render(Composer, {adapter, fid: 'alice'}))
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Add attachments"]')!.click())
+      expect(container.querySelector('[aria-expanded=true]')).not.toBeNull()
+      await act(() => container.querySelector('.bc-attachment-options button')!.dispatchEvent(new browser.KeyboardEvent('keydown', {key: 'Escape', bubbles: true})))
+      expect(container.querySelector('.bc-attachment-options')).toBeNull()
+      await record()
+      expect(container.querySelector('[role=status]')!.textContent).toBe('Recording 0:00')
+      expect(container.querySelector<HTMLButtonElement>('.bc-send')!.disabled).toBe(true)
+      await act(async () => { container.querySelector<HTMLButtonElement>('.bc-recording-stop')!.click(); for (let i = 0; i < 5; i++) await Promise.resolve() })
+      expect(stoppedTracks).toBeGreaterThanOrEqual(1)
+      expect(container.querySelector('.bc-pending-file audio')).not.toBeNull()
+      expect(container.querySelector('.bc-pending-file')!.textContent).not.toContain('voice-message-')
+      expect(container.querySelector('.bc-pending-file .bc-file-info')).toBeNull()
+      expect(sent.length).toBe(0)
+      await act(async () => { container.querySelector('form')!.dispatchEvent(new browser.Event('submit', {bubbles: true, cancelable: true})); for (let i = 0; i < 5; i++) await Promise.resolve() })
+      expect(uploaded[0]!.type).toBe('audio/mp4')
+      expect(uploaded[0]!.name.endsWith('.m4a')).toBe(true)
+      expect(sent[0]![1]).toBe('')
+      expect(revoked).toEqual(['blob:recorded-voice'])
+      await record()
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Cancel recording"]')!.click())
+      expect(container.querySelector('.bc-pending-file')).toBeNull()
+      rejectPermission = true
+      await record()
+      expect(container.querySelector('[role=alert]')!.textContent).toContain('Microphone access was denied')
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Cancel recording"]')!.click())
+      rejectPermission = false; delayPermission = true
+      await record()
+      await act(() => root.unmount())
+      const stoppedBefore = stoppedTracks
+      latePermission!(stream)
+      await act(async () => { for (let i = 0; i < 5; i++) await Promise.resolve() })
+      expect(stoppedTracks).toBe(stoppedBefore + 1)
+      expect(sent.length).toBe(1)
+    } finally {
+      await act(() => root.unmount()); container.remove()
+      URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl
+      if (navigatorDescriptor) Object.defineProperty(globalThis, 'navigator', navigatorDescriptor)
+      else delete (globalThis as Record<string, unknown>).navigator
+      if (recorderDescriptor) Object.defineProperty(globalThis, 'MediaRecorder', recorderDescriptor)
+      else delete (globalThis as Record<string, unknown>).MediaRecorder
+    }
+  })
   test('retains drafts and files through upload/send failures without uploading successful files again', async () => {
     const {act, createRoot} = await import('octane')
     const {default: Composer} = await import('../packages/chat/src/components/Composer.btsx')

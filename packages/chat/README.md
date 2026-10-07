@@ -65,7 +65,9 @@ Convex's framework-independent subscription client: https://docs.convex.dev/api/
 
 ## Attachments
 
-The composer shows an attachment picker when `adapter.upload` is available. Select multiple files, preview images, remove selections, and send with or without text. Files upload when you press Send; upload/send failures retain the draft and selections. Successful uploads are reused on retry. Switching threads or unmounting aborts pending uploads and releases composer preview URLs.
+The plus button opens options for photos/videos, files, and audio recording. Record audio requests microphone access, shows elapsed time, and offers Stop and Cancel. Stop adds a playable attachment to the draft; press Send to upload it. Cancellation and thread changes release the microphone, including late permission responses. Recording requires browser support and HTTPS or localhost.
+
+The composer shows an attachment picker when `adapter.upload` is available. Select multiple files, preview images or audio, remove selections, and send with or without text. Audio uses compact play/pause and seek controls with playback time; filenames and file sizes stay hidden. Use the audio's Open control to access the viewer and download. Playback depends on the browser's supported codecs, with a fallback when a preview fails. Files upload when you press Send; upload/send failures retain the draft and selections. Successful uploads are reused on retry. Switching threads or unmounting aborts pending uploads and releases composer preview URLs.
 
 Implement `upload(file, signal)` to return `{storageId, fileName, fileType, fileSize, url}`. The Convex adapter accepts an optional `upload` function in its options; the host owns storage endpoints, authentication, and file validation. Forward the supplied abort signal to network requests. The memory adapter provides local uploads for the playground.
 
@@ -98,7 +100,7 @@ The stylesheet includes a Tailwind 4 `@source` directive for the packaged compon
 
 ## Remaining source features
 
-Dock/window, guest bootstrap and account merge, assistant streaming and markdown, voice recording/playback, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
+Dock/window, guest bootstrap and account merge, assistant streaming and markdown, voice recording, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
 
 The playground's `SwipeRow` and `@/lib/icons` stay in the demo app. `PulseLike` ships at `@beast-chat/chat/pulse-like` with self-contained icons. Chat supplies its `liked` and `count` from adapter messages; controlled usage keeps the adapter authoritative when a mutation fails.
 

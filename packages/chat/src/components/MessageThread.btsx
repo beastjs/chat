@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'octane'
 import { useMessages } from '../hooks'
 import { normalizeMessageLimit } from '../core/message-limit'
 import { layoutMessages } from '../core/message-layout'
-import { formatFileSize } from '../core/attachment'
+import { formatFileSize, isAudioAttachment } from '../core/attachment'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
 import type { Attachment } from '../core/types'
 import AttachmentViewer from './AttachmentViewer.btsx'
+import AudioPlayer from './AudioPlayer.btsx'
 import Composer from './Composer.btsx'
 import Icon from './Icon.btsx'
 import Bubble, { BubbleContent, BubbleReactions } from './ui/bubble.btsx'
@@ -57,7 +58,12 @@ component ThreadBody
                     if message.content
                       p.bc-message-text #{message.content}
                     each attachment in message.attachments ?? [] key attachment.storageId
-                      if attachment.url
+                      if attachment.url && isAudioAttachment(attachment)
+                        div.bc-attachment-audio
+                          AudioPlayer(src={attachment.url} name="Voice message")
+                          button.bc-audio-open(type="button" aria-label={'View ' + attachment.fileName} title="Open audio" onClick={() => setViewing(attachment)})
+                            Icon(name="file")
+                      elseif attachment.url
                         button.bc-attachment-file(type="button" aria-label={'View ' + attachment.fileName} onClick={() => setViewing(attachment)})
                           if attachment.fileType.startsWith('image/')
                             img.bc-attachment-image(src={attachment.url} alt={attachment.fileName} loading="lazy")

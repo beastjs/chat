@@ -5,10 +5,12 @@ module
     preview: string | null;
     uploaded?: Attachment;
   }
-import { useEffect, useLayoutEffect, useRef, useState } from 'octane'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'octane'
 import type { ChatAdapter } from '../core/adapter'
 import type { Attachment } from '../core/types'
-import { formatFileSize } from '../core/attachment'
+import { formatFileSize, isAudioAttachment } from '../core/attachment'
+import AudioPlayer from './AudioPlayer.btsx'
+import AudioRecorder from './AudioRecorder.btsx'
 import Icon from "../../../../src/lib/icons/Icon.btsx";
 
 props { adapter, fid, onSent }: { adapter: ChatAdapter; fid: string; onSent?: () => void }
@@ -17,6 +19,20 @@ setup
   const [files, setFiles, getFiles] = useState<PendingFile[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [recording, setRecording, getRecording] = useState(false);
+  const optionsId = useId();
+  const options = useRef<HTMLDivElement | null>(null);
+  const optionsButton = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!optionsOpen) return;
+    options.current?.querySelector<HTMLButtonElement>('.bc-attachment-options button')?.focus();
+    const dismiss = (event: PointerEvent) => {
+      if (!options.current?.contains(event.target as Node)) setOptionsOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [optionsOpen]);
   const previewUrls = useRef(new Set<string>());
   const uploadAbort = useRef<AbortController | null>(null);
   const [sending, setSending] = useState(false);
@@ -44,17 +60,25 @@ setup
     URL.revokeObjectURL(item.preview);
     previewUrls.current.delete(item.preview);
   };
-  const selectFiles = (event: Event & { currentTarget: HTMLInputElement }) => {
+  const addFiles = (selectedFiles: File[]) => {
     if (busy.current) return;
-    const selected = Array.from(event.currentTarget.files ?? []).map(file => {
-      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    const selected = selectedFiles.map(file => {
+      const preview = file.type.startsWith('image/') || isAudioAttachment({fileType: file.type, fileName: file.name}) ? URL.createObjectURL(file) : null;
       if (preview) previewUrls.current.add(preview);
       return { id: crypto.randomUUID(), file, preview };
     });
     setFiles(current => [...current, ...selected]);
     setError(null);
-    event.currentTarget.value = '';
     input.current?.focus({ preventScroll: true });
+  };
+  const selectFiles = (event: Event & { currentTarget: HTMLInputElement }) => {
+    addFiles(Array.from(event.currentTarget.files ?? []));
+    event.currentTarget.value = '';
+  };
+  const finishRecording = (file?: File) => {
+    setRecording(false);
+    if (file) addFiles([file]);
+    optionsButton.current?.focus();
   };
   const removeFile = (id: string) => {
     if (busy.current) return;
@@ -66,7 +90,8 @@ setup
   const send = async () => {
     const content = getDraft().trim();
     const selected = getFiles();
-    if ((!content && !selected.length) || busy.current) return;
+    if ((!content && !selected.length) || busy.current || getRecording()) return;
+    setOptionsOpen(false);
     busy.current = true;
     setSending(true);
     setError(null);
@@ -105,28 +130,48 @@ setup
   };
 
 form.bc-composer(onSubmit={event => { event.preventDefault(); void send(); }})
+  if recording
+    AudioRecorder(onReady={file => finishRecording(file)} onCancel={() => finishRecording()})
   if files.length > 0
     ul.bc-pending-files(aria-label="Selected attachments")
       each item in files key item.id
-        li.bc-pending-file
-          if item.preview
+        li.bc-pending-file(data-audio={isAudioAttachment({fileType: item.file.type, fileName: item.file.name})})
+          if item.preview && isAudioAttachment({fileType: item.file.type, fileName: item.file.name})
+            fragment
+              AudioPlayer(src={item.preview} name="Voice message")
+              if uploadingId === item.id
+                span.bc-audio-upload(role="status") Uploading…
+          elseif item.preview
             img.bc-file-preview(src={item.preview} alt={item.file.name})
           else
             span.bc-file-icon(aria-hidden="true")
               Icon(name="file")
-          div.bc-file-info
-            strong #{item.file.name}
-            span(role={uploadingId === item.id ? 'status' : undefined}) #{uploadingId === item.id ? 'Uploading…' : formatFileSize(item.file.size)}
+          if !isAudioAttachment({fileType: item.file.type, fileName: item.file.name})
+            div.bc-file-info
+              strong #{item.file.name}
+              span(role={uploadingId === item.id ? 'status' : undefined}) #{uploadingId === item.id ? 'Uploading…' : formatFileSize(item.file.size)}
           button.bc-remove-file(type="button" aria-label={'Remove ' + item.file.name} disabled={sending} onClick={() => removeFile(item.id)})
             Icon(name="close")
   if adapter.upload
     fragment
       input.bc-file-picker(ref={picker} type="file" multiple hidden onChange={selectFiles})
-      button.bc-attach(type="button" aria-label="Add attachments" disabled={sending} onClick={() => picker.current?.click()})
-        Icon(name="attachment")
+      div.bc-attachment-actions(ref={options} onKeyDown={event => { if (event.key === 'Escape') { setOptionsOpen(false); optionsButton.current?.focus(); } }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOptionsOpen(false); }})
+        button.bc-attach(ref={optionsButton} type="button" aria-label="Add attachments" aria-expanded={optionsOpen} aria-controls={optionsId} disabled={sending || recording} onClick={() => setOptionsOpen(open => !open)})
+          Icon(name="plus")
+        if optionsOpen
+          div.bc-attachment-options(id={optionsId} role="group" aria-label="Attachment options")
+            button(type="button" onClick={() => { setOptionsOpen(false); picker.current!.accept = 'image/*,video/*'; picker.current?.click(); }})
+              Icon(name="image")
+              span Photos and videos
+            button(type="button" onClick={() => { setOptionsOpen(false); picker.current!.accept = ''; picker.current?.click(); }})
+              Icon(name="file")
+              span Attach files
+            button(type="button" onClick={() => { setOptionsOpen(false); setRecording(true); setError(null); }})
+              Icon(name="audio")
+              span Record audio
   div.bc-composer-field
     textarea(ref={input} rows={1} aria-label="Message" placeholder="Message…" autoComplete="off" enterKeyHint="send" value={draft} onInput={event => setDraft(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); } }})
-  button.bc-send(type="submit" aria-label={sending ? 'Sending message' : 'Send message'} onPointerDown={event => event.preventDefault()} disabled={sending || (!draft.trim() && !files.length)})
+  button.bc-send(type="submit" aria-label={sending ? 'Sending message' : 'Send message'} onPointerDown={event => event.preventDefault()} disabled={sending || recording || (!draft.trim() && !files.length)})
     Icon(name="arrow-up")
     span #{uploadingId ? 'Uploading' : sending ? 'Sending' : 'Send'}
   if error

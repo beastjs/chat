@@ -2,6 +2,7 @@ import { useMemo, useState } from 'octane'
 import { useConversations, useViewportHeight } from '../hooks'
 import MessageThread from './MessageThread.btsx'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
+import { isAudioAttachment } from '../core/attachment'
 import Icon from "../../../../src/lib/icons/Icon.btsx";
 
 props { adapter, identity, initialConversationFid = null, selectedFid, onSelectConversation, pageSize = 50, smoothScroll = true, theme = 'system' }: { adapter: ChatAdapter; identity: ChatIdentity; initialConversationFid?: string | null; selectedFid?: string | null; onSelectConversation?: (fid: string | null) => void; pageSize?: number; smoothScroll?: boolean; theme?: 'light' | 'dark' | 'system' }
@@ -41,7 +42,7 @@ section.bc-chat(class={active ? 'bc-selected' : ''} data-theme={theme} data-nati
             span.bc-avatar(aria-hidden="true") #{name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}
             span.bc-conversation-text
               strong #{name}
-              span #{conversation.lastMessage.content || conversation.lastMessage.attachments?.map(file => file.fileName).join(', ') || 'Start a conversation'}
+              span #{conversation.lastMessage.content || conversation.lastMessage.attachments?.map(file => isAudioAttachment(file) ? 'Voice message' : file.fileName).join(', ') || 'Start a conversation'}
             if conversation.unreadCount > 0
               span.bc-unread(aria-label={conversation.unreadCount + ' unread messages'}) #{conversation.unreadCount}
     if !loading && !error && filtered.length === 0

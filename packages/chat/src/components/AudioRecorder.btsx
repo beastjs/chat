@@ -1,0 +1,87 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'octane'
+import Icon from '../../../../src/lib/icons/Icon.btsx'
+
+props { onReady, onCancel }: { onReady: (file: File) => void; onCancel: () => void }
+setup
+  const [phase, setPhase] = useState<'requesting' | 'recording' | 'finishing' | 'error'>('requesting');
+  const [seconds, setSeconds] = useState(0);
+  const [error, setError] = useState('');
+  const recorder = useRef<MediaRecorder | null>(null);
+  const cancelButton = useRef<HTMLButtonElement | null>(null);
+  useLayoutEffect(() => { cancelButton.current?.focus(); }, []);
+  useEffect(() => {
+    let active = true;
+    let stream: MediaStream | null = null;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const release = () => {
+      clearInterval(timer);
+      stream?.getTracks().forEach(track => track.stop());
+    };
+    const start = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') throw new Error('Audio recording is unavailable. Use a supported browser on HTTPS or localhost.');
+        stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        if (!active) { release(); return; }
+        const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find(type => MediaRecorder.isTypeSupported(type));
+        const node = new MediaRecorder(stream, mimeType ? {mimeType} : undefined);
+        recorder.current = node;
+        const chunks: Blob[] = [];
+        node.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+        node.onerror = () => {
+          if (!active) return;
+          node.onstop = null;
+          if (node.state !== 'inactive') node.stop();
+          release();
+          setError('Recording failed. Cancel and try again.');
+          setPhase('error');
+        };
+        node.onstop = () => {
+          release();
+          if (!active) return;
+          const type = node.mimeType || chunks[0]?.type || 'audio/webm';
+          const blob = new Blob(chunks, {type});
+          if (!blob.size) { setError('No audio was recorded. Cancel and try again.'); setPhase('error'); return; }
+          const extension = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+          onReady(new File([blob], 'voice-message-' + Date.now() + '.' + extension, {type}));
+        };
+        node.start();
+        setPhase('recording');
+        const started = Date.now();
+        timer = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 250);
+      } catch (cause) {
+        release();
+        if (!active) return;
+        const denied = cause instanceof Error && (cause.name === 'NotAllowedError' || cause.name === 'SecurityError');
+        setError(denied ? 'Microphone access was denied. Allow access in your browser and try again.' : cause instanceof Error ? cause.message : 'Could not access the microphone.');
+        setPhase('error');
+      }
+    };
+    void start();
+    return () => {
+      active = false;
+      const node = recorder.current;
+      if (node) {
+        node.onstop = null; node.ondataavailable = null; node.onerror = null;
+        if (node.state !== 'inactive') node.stop();
+      }
+      recorder.current = null;
+      release();
+    };
+  }, []);
+  const stop = () => {
+    if (recorder.current?.state !== 'recording') return;
+    setPhase('finishing');
+    recorder.current.stop();
+  };
+
+div.bc-recording(data-phase={phase} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); onCancel(); } }})
+  span.bc-recording-dot(aria-hidden="true")
+  div.bc-recording-info
+    span(role="status") #{phase === 'requesting' ? 'Waiting for microphone…' : phase === 'finishing' ? 'Preparing audio…' : phase === 'error' ? 'Recording unavailable' : 'Recording ' + Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0')}
+    if error
+      p(role="alert") #{error}
+  if phase === 'recording'
+    button.bc-recording-stop(type="button" aria-label="Stop recording" title="Stop recording" onClick={stop})
+      Icon(name="stop" size={18})
+  button.bc-recording-cancel(ref={cancelButton} type="button" aria-label="Cancel recording" onClick={onCancel})
+    Icon(name="close")

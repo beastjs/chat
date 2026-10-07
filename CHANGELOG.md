@@ -4,6 +4,12 @@ All notable changes to `chat` will be recorded here.
 
 ## [Unreleased]
 
+- Use a compact audio player with play/pause, seek, and elapsed time; hide filenames and file sizes on audio drafts, bubbles, and inbox previews, and simplify recording controls.
+
+- Replace the attachment trigger with a plus pop-out for photos/videos, files, and microphone recording. Record, cancel, preview, and send voice attachments through the existing upload flow.
+
+- Preview audio attachments before sending and play them directly in message bubbles, with viewer/download access and a fallback for unsupported audio.
+
 - Open attachments in a fullscreen modal viewer with image/video/audio/PDF previews, top-right Download and Close controls, Escape dismissal, and focus restoration.
 - Download files under their original names, report failed downloads, and release temporary URLs on cleanup; ship attachment icon shapes inside the library.
 

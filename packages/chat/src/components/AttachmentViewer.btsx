@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'octane'
 import type { Attachment } from '../core/types'
-import { formatFileSize } from '../core/attachment'
+import { formatFileSize, isAudioAttachment } from '../core/attachment'
 import Icon from "../../../../src/lib/icons/Icon.btsx";
 
 props { attachment, onClose }: { attachment: Attachment; onClose: () => void }
@@ -15,7 +15,7 @@ setup
   const [previewFailed, setPreviewFailed] = useState(false);
   const image = attachment.fileType.startsWith('image/');
   const video = attachment.fileType.startsWith('video/');
-  const audio = attachment.fileType.startsWith('audio/');
+  const audio = isAudioAttachment(attachment);
   const pdf = attachment.fileType === 'application/pdf';
   const releaseDownload = () => {
     if (downloadUrl.current) URL.revokeObjectURL(downloadUrl.current);
@@ -72,8 +72,9 @@ setup
 dialog.bc-attachment-viewer(ref={dialog} aria-label={'Attachment viewer: ' + attachment.fileName} onCancel={event => { event.preventDefault(); onClose(); }})
   header.bc-viewer-toolbar
     div.bc-viewer-title
-      strong #{attachment.fileName}
-      span #{formatFileSize(attachment.fileSize)}
+      strong #{audio ? 'Voice message' : attachment.fileName}
+      if !audio
+        span #{formatFileSize(attachment.fileSize)}
     div.bc-viewer-actions
       button.bc-viewer-control(type="button" aria-label={downloading ? 'Downloading attachment' : 'Download attachment'} title="Download" disabled={downloading} onClick={() => void download()})
         Icon(name="download")
