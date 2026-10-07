@@ -43,7 +43,7 @@ export function useMessages(adapter: ChatAdapter, fid: string, limit: number, se
       if (!active) return
       const last = values.messages.at(-1)
       const oldLast = previous?.messages.at(-1)
-      const outgoing = previous !== null && last?.senderId === senderId && last?._id !== oldLast?._id && (!oldLast || values.messages.some(message => message._id === oldLast._id))
+      const outgoing = !!last && senderId !== undefined && previous !== null && last.senderId === senderId && last?._id !== oldLast?._id && (!oldLast || values.messages.some(message => message._id === oldLast._id))
       previous = values
       const update = () => {
         if (!active || previous !== values) return
@@ -52,6 +52,7 @@ export function useMessages(adapter: ChatAdapter, fid: string, limit: number, se
       if (outgoing) {
         // Remove the previous bubble's name before the old snapshot. Only the
         // newly inserted bubble should participate in this arrival.
+        cancelArrival?.()
         flushSync(() => { setEnteringId(null); setEntryMotion('native') })
         cancelArrival = transitionSentMessage(update, () => {
           if (active && previous?.messages.at(-1)?._id === last!._id) flushSync(() => setEntryMotion('fallback'))

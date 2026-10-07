@@ -1,3 +1,4 @@
+import {normalizeMessageLimit} from '../core/message-limit'
 import type {ConvexClient} from 'convex/browser'
 import {makeFunctionReference} from 'convex/server'
 import type {ChatAdapter, ChatIdentity} from '../core/adapter'
@@ -20,7 +21,7 @@ export function createConvexAdapter({client, identity, functions = {}}: ConvexCh
   const like = makeFunctionReference<'mutation', {messageId: string; userfid: string}, unknown>(functions.like ?? 'messages/m:likeMessage')
   return {
     subscribeConversations: (callback, onError) => client.onUpdate(conversations, {fid: identity.fid}, callback, onError),
-    subscribeMessages: (fid, limit, callback, onError) => client.onUpdate(messages, {currentUserId: identity.fid, otherUserId: fid}, values => callback({messages: values.slice(-limit), hasMore: values.length > limit}), onError),
+    subscribeMessages: (fid, limit, callback, onError) => client.onUpdate(messages, {currentUserId: identity.fid, otherUserId: fid}, values => callback({messages: values.slice(-normalizeMessageLimit(limit)), hasMore: values.length > normalizeMessageLimit(limit)}), onError),
     async sendMessage(fid, content, attachments) {
       await client.mutation(send, {senderId: identity.fid, receiverId: fid, content, ...(attachments?.length ? {attachments: attachments.map(({url, ...attachment}) => attachment)} : {})})
     },

@@ -4,6 +4,15 @@ All notable changes to `chat` will be recorded here.
 
 ## [Unreleased]
 
+- Group consecutive sender bubbles with joined corners and centered local date/time labels after five-minute gaps or day changes; show receipts at the end of outgoing runs.
+
+- Align dark-mode data attributes with registry tokens, scope chat primitive colors to its own palette, and synchronize page/native-control colors with the playground toggle.
+
+- Fix reaction cleanup errors on thread changes; package PulseLike with local icons and bind likes/counts to adapter data, including rejected mutations.
+- Repair UI compatibility wrappers to use public package exports and avoid generated component name collisions.
+- Reset standalone thread drafts/history on participant changes, normalize invalid history limits, track the newest unread message, and cancel superseded send transitions.
+- Add runtime and package regression coverage for reactions, standalone thread switching, wrapper imports, source portability, and bounded adapter windows.
+
 - Start the reusable chat library extraction from `rf` with backend-independent types and conversation-selection helpers.
 - Establish the `@beast-chat/chat` workspace source package and native Beast chat playground.
 - Add pluggable memory and optional legacy Convex adapters, bounded message rendering, text composer, receipts, and reactions.

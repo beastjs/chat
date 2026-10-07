@@ -19,7 +19,8 @@
     "./hooks": "./src/hooks.ts",
     "./bubble": "./src/components/ui/bubble.btsx",
     "./message-scroller": "./src/components/ui/message-scroller.btsx",
-    "./button": "./src/components/ui/button.btsx"
+    "./button": "./src/components/ui/button.btsx",
+    "./pulse-like": "./src/components/ui/pulse-like.btsx"
   },
   "files": [
     "src",

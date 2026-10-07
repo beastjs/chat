@@ -337,4 +337,72 @@ describe('native Beast chat', () => {
       container.remove()
     }
   })
+  test('reactions reflect adapter likes and retain their state after a rejected mutation', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: MessageThread} = await import('../packages/chat/src/components/MessageThread.btsx')
+    const identity = {id: 'you', fid: 'you', name: 'You'}
+    const memory = createMemoryAdapter({identity, conversations: [], messages: {alice: [{_id: 'liked', senderId: 'alice', receiverId: 'you', content: 'Liked message', createdAt: '2026-10-05T00:00:00Z', readAt: '2026-10-05T00:00:00Z', likes: [{userId: 'you', likedAt: ''}, {userId: 'alice', likedAt: ''}]}, {_id: 'own', senderId: 'you', receiverId: 'alice', content: 'Own message', createdAt: '2026-10-05T00:01:00Z', readAt: null, likes: [{userId: 'alice', likedAt: ''}]}]}})
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    try {
+      await act(() => root.render(MessageThread, {adapter: memory, identity, fid: 'alice', smoothScroll: false}))
+      expect(container.querySelector('.bc-own button[aria-pressed]')).toBeNull()
+      expect(container.querySelectorAll('.bc-other button[aria-pressed]').length).toBe(1)
+      const reaction = () => container.querySelector<HTMLButtonElement>('button[aria-pressed]')!
+      expect(reaction().getAttribute('aria-pressed')).toBe('true')
+      expect(reaction().textContent).toContain('Like message, 2')
+      await act(async () => { reaction().click(); await Promise.resolve() })
+      expect(reaction().getAttribute('aria-pressed')).toBe('false')
+      expect(reaction().textContent).toBe('Like message')
+      const failing = {...memory, toggleLike: async () => { throw new Error('Reaction failed') }}
+      await act(() => root.render(MessageThread, {adapter: failing, identity, fid: 'alice', smoothScroll: false}))
+      await act(async () => { reaction().click(); await Promise.resolve() })
+      expect(reaction().getAttribute('aria-pressed')).toBe('false')
+      expect(reaction().textContent).toBe('Like message')
+      expect(container.querySelector('[role=alert]')?.textContent).toBe('Reaction failed')
+    } finally { await act(() => root.unmount()); container.remove() }
+  })
+  test('standalone threads reset drafts and history windows when the participant changes', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: MessageThread} = await import('../packages/chat/src/components/MessageThread.btsx')
+    const identity = {id: 'you', fid: 'you', name: 'You'}
+    const messages = Array.from({length: 4}, (_, i) => ({_id: `m${i}`, senderId: 'you', receiverId: 'alice', content: `Message ${i}`, createdAt: '', readAt: null}))
+    const memory = createMemoryAdapter({identity, conversations: [], messages: {alice: messages, bob: messages}})
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    try {
+      await act(() => root.render(MessageThread, {adapter: memory, identity, fid: 'alice', pageSize: 2, smoothScroll: false}))
+      await act(() => container.querySelector<HTMLButtonElement>('.bc-load')!.click())
+      const input = container.querySelector('textarea')!
+      input.value = 'Private draft for Alice'
+      await act(() => input.dispatchEvent(new browser.Event('input', {bubbles: true})))
+      expect(container.querySelectorAll('.bc-message').length).toBe(4)
+      await act(() => root.render(MessageThread, {adapter: memory, identity, fid: 'bob', pageSize: 2, smoothScroll: false}))
+      expect(container.querySelectorAll('.bc-message').length).toBe(2)
+      expect(container.querySelector('textarea')!.value).toBe('')
+    } finally { await act(() => root.unmount()); container.remove() }
+  })
+  test('compatibility wrappers resolve public exports and share the message scroller provider', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: Bubble} = await import('../src/components/ui/chat-bubble.btsx')
+    const {default: Button} = await import('../src/components/ui/chat-button.btsx')
+    const {default: Scroller} = await import('../src/components/ui/scroller.btsx')
+    const {MessageScrollerProvider} = await import('../src/components/ui/message-scroller.btsx')
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    try {
+      await act(() => root.render(Bubble, {children: 'Bubble'}))
+      expect(container.textContent).toBe('Bubble')
+      await act(() => root.render(Button, {children: 'Button'}))
+      expect(container.querySelector('button')!.textContent).toBe('Button')
+      await act(() => root.render(Scroller, {children: 'Scroller'}))
+      expect(container.textContent).toBe('Scroller')
+      await act(() => root.render(MessageScrollerProvider, {children: 'Provider'}))
+      expect(container.textContent).toBe('Provider')
+    } finally { await act(() => root.unmount()); container.remove() }
+  })
+
 })

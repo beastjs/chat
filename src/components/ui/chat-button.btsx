@@ -1,6 +1,6 @@
-import Button from '@beast-chat/chat/button.btsx'
+import PackagedButton from '@beast-chat/chat/button'
 import type { ComponentProps } from 'octane'
 module
   export { buttonVariants } from '@beast-chat/chat/button';
-props { ...props }: ComponentProps<typeof Button>
-Button({...props})
+props { ...props }: ComponentProps<typeof PackagedButton>
+PackagedButton({...props})

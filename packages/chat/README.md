@@ -31,7 +31,7 @@ Import `@beast-chat/chat/styles.css` once from your app stylesheet or entry. Sty
 
 The registry primitives (`.cn-*`) follow the beast-ui theme, including its `surface` and `positive` tokens alongside the standard ones (`primary`, `secondary`, `muted`, `popover`, `sidebar-border`, …); hosts need all of them for the exact preview look.
 
-`Chat`, `MessageThread`, `Composer`, and `ChatIcon` are exported from the root. Finer entry points exist for `./composer`, `./message-thread`, `./icon`, `./hooks`, `./core`, `./memory`, `./convex`, `./bubble`, `./message-scroller`, and `./button`. Their authored sources are packaged with the library, with no application aliases. The host owns authentication and navigation. Keep adapter/identity objects stable. To switch accounts or adapters, remount Chat with a new key, preventing old conversation state from carrying over.
+`Chat`, `MessageThread`, `Composer`, and `ChatIcon` are exported from the root. Finer entry points exist for `./composer`, `./message-thread`, `./icon`, `./hooks`, `./core`, `./memory`, `./convex`, `./bubble`, `./message-scroller`, `./button`, and `./pulse-like`. Their authored sources are packaged with the library, with no application aliases. The host owns authentication and navigation. Keep adapter/identity objects stable. To switch accounts or adapters, remount Chat with a new key, preventing old conversation state from carrying over.
 
 ## Selection
 
@@ -42,6 +42,8 @@ Chat(adapter={adapter} identity={identity} selectedFid={selected} onSelectConver
 ```
 
 `smoothScroll={false}` skips the lazy Lenis driver and keeps native scrolling; the default `true` enables it per viewport. On phones the chat fills `calc(var(--bc-viewport-height, 100dvh) - var(--bc-mobile-offset, 0px))`; override `--bc-mobile-offset` when a host header sits above the chat.
+
+Message windows use positive integer sizes. Fractional `pageSize`/adapter limits are rounded down; values below one or non-finite values fall back to 50. Standalone `MessageThread` resets its draft and history window when `fid` changes.
 
 ## Adapters
 
@@ -82,13 +84,14 @@ The stylesheet includes a Tailwind 4 `@source` directive for the packaged compon
 - Conversation list, search of loaded conversations, unread badges
 - Responsive full chat and text composer with IME-aware Enter handling
 - Message window, explicit earlier-history loading, read receipts, likes
+- Consecutive sender groups with centered local date/time labels after five-minute gaps or day changes
 - Existing attachment download links
 - Subscription cleanup, failed-send draft preservation, host callbacks
 
 ## Remaining source features
 
-Dock/window, guest bootstrap and account merge, assistant streaming and markdown, uploads/previews, image modal, voice recording/playback, folders/archive, message deletion, date groups, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
+Dock/window, guest bootstrap and account merge, assistant streaming and markdown, uploads/previews, image modal, voice recording/playback, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
 
-The playground's `SwipeRow`, `PulseHeart`, and `@/lib/icons` primitives are intentionally not part of this package; they stay in the demo app until a separate scope decision moves them in.
+The playground's `SwipeRow` and `@/lib/icons` stay in the demo app. `PulseLike` ships at `@beast-chat/chat/pulse-like` with self-contained icons. Chat supplies its `liked` and `count` from adapter messages; controlled usage keeps the adapter authoritative when a mutation fails.
 
 The working package name is provisional. Nothing has been published.

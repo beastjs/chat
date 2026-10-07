@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'octane'
+import { useEffect, useMemo, useState } from 'octane'
 import { useMessages } from '../hooks'
+import { normalizeMessageLimit } from '../core/message-limit'
+import { layoutMessages } from '../core/message-layout'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
 import Composer from './Composer.btsx'
 import Bubble, { BubbleContent, BubbleReactions } from './ui/bubble.btsx'
 import MessageScroller, { MessageScrollerProvider, MessageScrollerViewport, MessageScrollerContent, MessageScrollerItem, MessageScrollerButton, useMessageScroller } from './ui/message-scroller.btsx'
-import PulseLike from "../../../../src/components/ui/pulse-like.btsx";
+import PulseLike from "./ui/pulse-like.btsx";
 
 component ThreadBody
   props { adapter, identity, fid, pageSize }: { adapter: ChatAdapter; identity: ChatIdentity; fid: string; pageSize: number }
@@ -12,8 +14,9 @@ component ThreadBody
     const [limit, setLimit] = useState(pageSize);
     const { scrollToEnd, scrollToEndIfPinned } = useMessageScroller();
     const { data, loading, error, enteringId, entryMotion } = useMessages(adapter, fid, limit, identity.id, () => scrollToEndIfPinned({ behavior: 'instant' }));
+    const rows = useMemo(() => layoutMessages(data.messages), [data.messages]);
     const [actionError, setActionError] = useState<string | null>(null);
-    const lastUnread = data.messages.find(message => message.receiverId === identity.id && !message.readAt)?._id;
+    const lastUnread = [...data.messages].reverse().find(message => message.receiverId === identity.id && !message.readAt)?._id;
     useEffect(() => {
       if (!lastUnread || !adapter.markAsRead) return;
       let active = true;
@@ -36,27 +39,29 @@ component ThreadBody
             p.bc-error(role="alert") #{error}
           if !loading && !error && data.messages.length === 0
             p.bc-state No messages yet. Start the conversation.
-          each message in data.messages key message._id
-            MessageScrollerItem(messageId={message._id} data-entering={message._id === enteringId ? 'true' : undefined} data-entry-motion={message._id === enteringId ? entryMotion : undefined} style={message._id === enteringId && entryMotion === 'native' ? {viewTransitionName: 'bc-sent-message'} : undefined} className={message.senderId === identity.id ? 'bc-message bc-own' : 'bc-message bc-other'})
-              Bubble(variant={message.senderId === identity.id ? 'default' : 'secondary'} align={message.senderId === identity.id ? 'end' : 'start'} className="bc-bubble")
-                BubbleContent(className="bc-bubble-content")
-                  p.bc-message-text #{message.content}
-                BubbleReactions
-                  if adapter.toggleLike
-                    PulseLike(size={12} showCount={(message.likes?.length ?? 0) >= 2} onChange={(liked, count) => void react(message._id)})
-                    // button(type="button" aria-label="Like message" aria-pressed={message.likes?.some(like => like.userId === identity.id) ?? false} onClick={() => void react(message._id)}) #{'♡' + (message.likes?.length || '')}
-              each attachment in message.attachments ?? [] key attachment.storageId
-                if attachment.url
-                  a.bc-attachment(href={attachment.url} target="_blank" rel="noopener noreferrer") #{attachment.fileName}
-              div.bc-message-meta
-                time(datetime={message.createdAt}) #{message.createdAt.slice(11, 16)}
-                if message.senderId === identity.id
-                  span #{message.readAt ? 'Read' : 'Sent'}
+          each row in rows key row.message._id
+            scope
+              setup const { message, startsRun, endsRun, timestamp } = row;
+              MessageScrollerItem(messageId={message._id} data-run-start={startsRun} data-run-end={endsRun} data-entering={message._id === enteringId ? 'true' : undefined} data-entry-motion={message._id === enteringId ? entryMotion : undefined} style={message._id === enteringId && entryMotion === 'native' ? {viewTransitionName: 'bc-sent-message'} : undefined} className={message.senderId === identity.id ? 'bc-message bc-own' : 'bc-message bc-other'})
+                if timestamp
+                  time.bc-message-timestamp(datetime={message.createdAt}) #{timestamp}
+                Bubble(variant={message.senderId === identity.id ? 'default' : 'secondary'} align={message.senderId === identity.id ? 'end' : 'start'} className="bc-bubble")
+                  BubbleContent(className="bc-bubble-content")
+                    p.bc-message-text #{message.content}
+                  if adapter.toggleLike && message.senderId !== identity.id
+                    BubbleReactions(className="bc-message-reactions" data-has-likes={(message.likes?.length ?? 0) > 0})
+                      PulseLike(size={10} liked={message.likes?.some(like => like.userId === identity.id) ?? false} count={message.likes?.length ?? 0} showCount={(message.likes?.length ?? 0) >= 2} label="Like message" onChange={() => void react(message._id)})
+                each attachment in message.attachments ?? [] key attachment.storageId
+                  if attachment.url
+                    a.bc-attachment(href={attachment.url} target="_blank" rel="noopener noreferrer") #{attachment.fileName}
+                if endsRun && message.senderId === identity.id
+                  div.bc-message-meta
+                    span #{message.readAt ? 'Read' : 'Sent'}
       MessageScrollerButton(className="bc-scroll-button")
     if actionError
       p.bc-error(role="alert") #{actionError}
     Composer(adapter={adapter} fid={fid} onSent={() => scrollToEnd({ behavior: 'instant' })})
 
 props { adapter, identity, fid, pageSize = 50, smoothScroll = true }: { adapter: ChatAdapter; identity: ChatIdentity; fid: string; pageSize?: number; smoothScroll?: boolean }
-MessageScrollerProvider(autoScroll={true} defaultScrollPosition="end" scrollEdgeThreshold={80} trackVisibility={false} smoothScroll={smoothScroll})
-  ThreadBody(adapter={adapter} identity={identity} fid={fid} pageSize={pageSize})
+MessageScrollerProvider(key={fid} autoScroll={true} defaultScrollPosition="end" scrollEdgeThreshold={80} trackVisibility={false} smoothScroll={smoothScroll})
+  ThreadBody(adapter={adapter} identity={identity} fid={fid} pageSize={normalizeMessageLimit(pageSize)})

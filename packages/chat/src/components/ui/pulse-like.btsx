@@ -1,0 +1,272 @@
+module "use client";
+import { useEffect, useLayoutEffect, useRef, useState } from "octane";
+import type { OctaneNode, CSSProperties, PointerEvent, MouseEvent } from "octane";
+module
+  export type PulseLikeIcon = "heart" | "star" | "thumb-up";
+  export interface PulseLikeProps {
+    ~ liked?: boolean;
+    ~ defaultLiked?: boolean;
+    ~ count?: number;
+    ~ onChange?: (liked: boolean, count: number) => void;
+    ~ showCount?: boolean;
+    ~ icon?: PulseLikeIcon | OctaneNode;
+    ~ idleOutline?: boolean;
+    ~ size?: number;
+    ~ corner?: number;
+    ~ likedColor?: string;
+    ~ idleColor?: string;
+    ~ pillColor?: string;
+    ~ textColor?: string;
+    ~ duration?: number;
+    ~ dotSize?: number;
+    ~ overshoot?: number;
+    ~ beat?: number;
+    ~ rollDuration?: number;
+    ~ disabled?: boolean;
+    ~ label?: string;
+    ~ className?: string;
+    ~ }
+  type Roll = {
+    ~ a: string;
+    ~ b: string;
+    ~ at: number;
+    ~ up: boolean;
+    ~ };
+  type Cell = {
+    ~ ch: string;
+    ~ } | {
+    ~ top: string;
+    ~ bottom: string;
+    ~ };
+  const OUT = 0.4;
+  const ICONS: Record<PulseLikeIcon, string> = {
+    heart: 'M18.5 3.8a7.4 7.4 0 0 1 3.5 6.6C21.86 16.5 13.5 21 12 21S2.14 16.5 2 10.4a7.4 7.4 0 0 1 3.5-6.6 5.6 5.6 0 0 1 6.5.54 5.6 5.6 0 0 1 6.5-.54',
+    star: 'M10.92 2.37a1.25 1.25 0 0 1 2.16 0l2.8 4.8 5.42 1.18a1.25 1.25 0 0 1 .67 2.05l-3.7 4.14.56 5.53a1.25 1.25 0 0 1-1.75 1.27L12 19.1l-5.08 2.24a1.25 1.25 0 0 1-1.75-1.27l.56-5.53-3.7-4.14a1.25 1.25 0 0 1 .67-2.06l5.43-1.17z',
+    'thumb-up': 'M6 21h-.15A3 3 0 0 1 3 18v-6a3 3 0 0 1 2.85-3H6zM9.82 3.2c.3-.69 1.06-1.32 2.02-1.13C13.37 2.38 15 3.57 15 5.5V8h3.6c1.8 0 3.2 1.58 2.95 3.37l-.2 1.34-.92 5A4 4 0 0 1 16.5 21H8V9z',
+  };
+  const back = (k: number, c: number) => {
+    const u = k - 1;
+    return 1 + (c + 1) * u ** 3 + c * u ** 2;
+  };
+  const swellOf = (t: number, c: number) => t <= 0 ? 0 : t < OUT ? 1 - (1 - t / OUT) ** 3 : 1 - back((t - OUT) / (1 - OUT), c);
+  const format = (n: number) => new Intl.NumberFormat().format(n);
+  const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+props { liked: likedProp, defaultLiked = false, count = 0, onChange, showCount = true, icon = "heart", idleOutline = true, size = 20, corner = 10, likedColor = "#ef8734", idleColor = "#888888", pillColor = "transparent", textColor = "inherit", duration = 500, dotSize = 0.15, overshoot = 1.7, beat = 6, rollDuration = 220, disabled = false, label = "Like", className = "" }: PulseLikeProps
+setup
+  const controlled = likedProp !== undefined;
+  const [inner, setInner] = useState(defaultLiked);
+  const [innerTotal, setTotal] = useState(count);
+  const total = controlled ? count : innerTotal;
+  const liked = controlled ? likedProp : inner;
+  const [shown, setShown] = useState({ liked, count });
+  const [roll, setRoll] = useState<Roll | null>(null);
+  const rootRef = useRef<HTMLButtonElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  const heartRef = useRef<HTMLSpanElement | null>(null);
+  const rollRef = useRef<HTMLSpanElement | null>(null);
+  const raf = useRef(0);
+  const rollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const viaPointer = useRef(false);
+  const shownRef = useRef(shown);
+  const logical = useRef({ liked, count: total });
+  logical.current = { liked, count: total };
+  const cfg = useRef({ duration, dotSize, overshoot, beat, rollDuration });
+  cfg.current = { duration, dotSize, overshoot, beat, rollDuration };
+
+  useEffect(() => {
+    setTotal(count);
+  }, [count]);
+
+  useEffect(() => {
+    if (raf.current)
+      return;
+    if (shownRef.current.liked === liked && shownRef.current.count === total)
+      return;
+    shownRef.current = { liked, count: total };
+    setShown(shownRef.current);
+  }, [liked, total]);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || root.dataset.instant === undefined)
+      return;
+    root.getBoundingClientRect();
+    delete root.dataset.instant;
+  }, [shown]);
+
+  useLayoutEffect(() => {
+    const el = rollRef.current;
+    if (!el || !roll)
+      return;
+    el.style.transition = "none";
+    el.style.transform = `translateY(${roll.up ? "0" : "-1em"})`;
+    el.getBoundingClientRect();
+    el.style.transition = "";
+    el.style.transform = `translateY(${roll.up ? "-1em" : "0"})`;
+  }, [roll]);
+
+  useEffect(() => () => {
+    if (raf.current && typeof cancelAnimationFrame === "function") cancelAnimationFrame(raf.current);
+    clearTimeout(rollTimer.current);
+  }, []);
+
+  const startRoll = (from: number, to: number) => {
+    if (from === to)
+      return;
+    const a = format(from);
+    const b = format(to);
+    const changed = a.length === b.length ? [...b].flatMap((ch, i) => (ch !== a[i] ? [i] : [])) : [];
+    setRoll({ a, b, at: changed.length === 1 ? changed[0] : -1, up: to > from });
+    clearTimeout(rollTimer.current);
+    rollTimer.current = setTimeout(() => setRoll(null), cfg.current.rollDuration);
+  };
+
+  const run = (nextLiked: boolean, nextCount: number) => {
+    const root = rootRef.current;
+    const heart = heartRef.current;
+    const pill = pillRef.current;
+    if (!root || !heart || !pill)
+      return;
+    root.dataset.running = "";
+    let swapped = false;
+    let prev = 0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const { duration: D, dotSize: dot, overshoot: c, beat: B } = cfg.current;
+      const t = Math.min(1, (now - t0) / D);
+      const step = prev ? now - prev : 1000 / 60;
+      prev = now;
+      const s = swellOf(t, c);
+      const k = 1 - (1 - dot) * s;
+      heart.style.transform = `scale(${k})`;
+      pill.style.transform = `scale(${1 - (B / 100) * s})`;
+      if (!swapped && t + step / 2 / D >= OUT) {
+        swapped = true;
+        root.dataset.liked = String(nextLiked);
+        startRoll(shownRef.current.count, nextCount);
+        shownRef.current = { liked: nextLiked, count: nextCount };
+        setShown(shownRef.current);
+      }
+      if (t < 1) {
+        raf.current = requestAnimationFrame(tick);
+        return;
+      }
+      raf.current = 0;
+      heart.style.transform = "";
+      pill.style.transform = "";
+      delete root.dataset.running;
+      const l = logical.current;
+      if (l.liked !== shownRef.current.liked || l.count !== shownRef.current.count) {
+        shownRef.current = { liked: l.liked, count: l.count };
+        setShown(shownRef.current);
+      }
+    };
+    raf.current = requestAnimationFrame(tick);
+  };
+
+  const handlePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0 || disabled)
+      return;
+    viaPointer.current = true;
+    if (!reducedMotion() && rootRef.current)
+      rootRef.current.dataset.pressed = "";
+  };
+
+  const handlePointerUp = () => {
+    if (rootRef.current)
+      delete rootRef.current.dataset.pressed;
+  };
+
+  const handlePointerCancel = () => {
+    viaPointer.current = false;
+    handlePointerUp();
+  };
+
+  const handleKeyDown = () => {
+    viaPointer.current = false;
+  };
+
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (disabled || raf.current)
+      return;
+    const pointer = viaPointer.current && e.detail !== 0;
+    viaPointer.current = false;
+    const nextLiked = !liked;
+    const nextCount = Math.max(0, total + (nextLiked ? 1 : -1));
+    if (!controlled)
+      setInner(nextLiked);
+    if (!controlled) setTotal(nextCount);
+    onChange?.(nextLiked, nextCount);
+    if (pointer && !reducedMotion() && typeof requestAnimationFrame === "function")
+      run(nextLiked, nextCount);
+    else if (rootRef.current)
+      rootRef.current.dataset.instant = "";
+  };
+
+  const paths = typeof icon === "string" ? ICONS[icon as PulseLikeIcon] || ICONS.heart : null;
+  const text = format(shown.count);
+
+  const cells: Cell[] = roll
+    ? roll.at === -1
+      ? [{ top: roll.up ? roll.a : roll.b, bottom: roll.up ? roll.b : roll.a }]
+      : [...roll.b].map((ch, i) => i === roll.at ? { top: roll.up ? roll.a[i] : ch, bottom: roll.up ? ch : roll.a[i] } : { ch })
+    : [...text].map(ch => ({ ch }));
+button(
+  ~ ref={rootRef}
+  ~ type="button"
+  ~ aria-pressed={liked}
+  ~ disabled={disabled}
+  ~ data-liked={String(shown.liked)}
+  ~ data-solid={idleOutline ? undefined : ""}
+  ~ data-no-count={showCount ? undefined : ""}
+  ~ className={`group relative m-0 inline-flex cursor-pointer touch-manipulation select-none items-center justify-center border-0 bg-transparent p-0 outline-none [font-family:inherit] [color:var(--ph-text)] rounded-[var(--ph-corner)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [transition:transform_160ms_var(--ph-ease-out)] data-[pressed]:[transform:scale(0.97)] focus-visible:outline-offset-[0px] focus-visible:[outline:2px_solid_color-mix(in_srgb,var(--ph-liked)_60%,transparent)] disabled:cursor-default disabled:opacity-[0.55] motion-reduce:transition-none [@media(pointer:coarse)]:min-h-9 [@media(pointer:coarse)]:min-w-11${className ? ` ${className}` : ""}`}
+  ~ style={{
+  ~ "--ph-size": `${size}px`,
+  ~ "--ph-corner": `${corner}px`,
+  ~ "--ph-pill": pillColor,
+  ~ "--ph-idle": idleColor,
+  ~ "--ph-liked": likedColor,
+  ~ "--ph-text": textColor,
+  ~ "--ph-roll": `${rollDuration}ms`,
+  ~ "--ph-stroke": `${(1.5 * size) / 24}px`,
+  ~ "--ph-ease-out": "cubic-bezier(0.23, 1, 0.32, 1)"
+  ~ } as CSSProperties}
+  ~ onPointerDown={handlePointerDown}
+  ~ onPointerUp={handlePointerUp}
+  ~ onPointerLeave={handlePointerUp}
+  ~ onPointerCancel={handlePointerCancel}
+  ~ onKeyDown={handleKeyDown}
+  ~ onClick={handleClick}
+  ~ )
+  span(
+    ~ className="inline-flex origin-center items-center [gap:calc(var(--ph-size)*0.15)] [padding:calc(var(--ph-size)*0.15)] [padding-inline-end:calc(var(--ph-size)*0.2)] group-data-[no-count]:[padding-inline-end:calc(var(--ph-size)*0.15)] rounded-[var(--ph-corner)] [background:var(--ph-pill)] [@media(prefers-contrast:more)]:[box-shadow:inset_0_0_0_1px_color-mix(in_srgb,var(--ph-text)_25%,transparent)]"
+    ~ ref={pillRef}
+    ~ )
+    span(
+      ~ className="block h-[var(--ph-size)] w-[var(--ph-size)] origin-center [color:var(--ph-idle)] [transition:color_160ms_ease] group-data-[liked=true]:[color:var(--ph-liked)] group-data-[running]:transition-none group-data-[instant]:transition-none motion-reduce:[transition:color_200ms_ease] [&_svg]:block [&_svg]:h-full [&_svg]:w-full [&_svg]:overflow-visible [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:var(--ph-stroke)] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round] group-data-[liked=true]:[&_svg]:fill-current group-data-[solid]:[&_svg]:fill-current [@media(hover:hover)_and_(pointer:fine)]:group-enabled:group-hover:group-data-[liked=false]:[color:color-mix(in_srgb,var(--ph-idle)_45%,var(--ph-liked))]"
+      ~ ref={heartRef}
+      ~ aria-hidden="true"
+      ~ )
+      if paths
+        svg(viewBox="0 0 24 24" width={size} height={size} aria-hidden="true")
+          path(d={paths})
+      else
+        | #{icon}
+    if showCount
+      span(
+        ~ className="inline-flex font-semibold leading-none tracking-[-0.1px] tabular-nums [font-size:calc(var(--ph-size)*0.5)] [color:var(--ph-text)] [&>span]:block [&>span]:h-[1em]"
+        ~ aria-hidden="true"
+        ~ )
+        each cell, i in cells
+          fragment
+            if "ch" in cell
+              span(key={`c${i}`}) #{cell.ch}
+            else
+              span(className="relative overflow-hidden" key={`r${i}`})
+                span(
+                  ~ className="flex flex-col [transition:transform_var(--ph-roll)_var(--ph-ease-out)] motion-reduce:transition-none [&>span]:block [&>span]:h-[1em] [&>span]:leading-none"
+                  ~ ref={rollRef}
+                  ~ )
+                  span #{cell.top}
+                  span #{cell.bottom}
+    span.sr-only #{showCount ? `${label}, ${format(total)}` : label}

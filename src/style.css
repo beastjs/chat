@@ -2,7 +2,7 @@
 @import "@beast-chat/chat/styles.css";
 @font-face { font-family:'Geist Variable'; font-style:normal; font-weight:100 900; font-display:swap; src:url('@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2-variations'); }
 @font-face { font-family:'Geist Mono Variable'; font-style:normal; font-weight:100 900; font-display:swap; src:url('@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2') format('woff2-variations'); }
-:root { font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif; background:#f7f7f7; color:#181818; font-synthesis:none; -webkit-font-smoothing:antialiased; }
+:root { font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif; background:var(--playground-bg,#f7f7f7); color:var(--foreground,#181818); color-scheme:light; font-synthesis:none; -webkit-font-smoothing:antialiased; }
 * { box-sizing:border-box; }
 body { margin:0; }
 button { -webkit-tap-highlight-color:transparent; }
@@ -14,13 +14,14 @@ button { -webkit-tap-highlight-color:transparent; }
 .brand-name { font-size:17px; font-weight:620; letter-spacing:-.05em; }
 .brand-name > span { color:#ef8734; margin-left:4px; }
 .brand-divider { width:1px; height:18px; background:#d8d8d8; margin:0 5px; }
-.brand-workspace { font-size:12px; color:#777; }
-.demo-badge { font:10px 'Geist Mono Variable',monospace; color:#777; padding:7px 10px; border:1px solid #dedede; border-radius:7px; }
+.brand-workspace { font-size:12px; color:var(--muted-foreground); }
+.demo-badge { font:10px 'Geist Mono Variable',monospace; color:var(--muted-foreground); padding:7px 10px; border:1px solid #dedede; border-radius:7px; }
 .theme-toggle { display:grid; place-items:center; width:44px; height:44px; padding:0; color:inherit; background:transparent; border:1px solid transparent; border-radius:12px; cursor:pointer; }
 .theme-toggle:hover { background:#ececec; }
 .theme-toggle:focus-visible { outline:2px solid #ef8734; outline-offset:2px; }
 .playground > .bc-chat { max-width:1320px; margin:auto; }
-.playground[data-theme=dark] { background:#101010; color:#eee; color-scheme:dark; }
+:root[data-theme=dark] { --playground-bg:#101010; color-scheme:dark; }
+.playground[data-theme=dark] { background:var(--playground-bg,#101010); color:#eee; color-scheme:dark; }
 .playground[data-theme=dark] .brand-mark { background:#eee; color:#181818; }
 .playground[data-theme=dark] .brand-divider { background:#353535; }
 .playground[data-theme=dark] .demo-badge { border-color:#353535; }

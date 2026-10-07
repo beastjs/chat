@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   --background: oklch(1 0 0);
@@ -59,7 +59,7 @@
   --spacing: 0.25rem;
 }
 
-.dark {
+.dark, [data-theme="dark"] {
   --background: oklch(0.1450 0 0);
   --foreground: oklch(0.9850 0 0);
   --card: oklch(0.2050 0 0);

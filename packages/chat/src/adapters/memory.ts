@@ -1,3 +1,4 @@
+import {normalizeMessageLimit} from '../core/message-limit'
 import type {ChatAdapter, ChatIdentity} from '../core/adapter'
 import type {Conversation, Message} from '../core/types'
 
@@ -24,9 +25,10 @@ export function createMemoryAdapter(options: MemoryChatOptions): ChatAdapter {
       return () => { conversationListeners.delete(listener) }
     },
     subscribeMessages(fid, limit, listener) {
+      const size = normalizeMessageLimit(limit)
       const emit = () => {
         const history = messages.get(fid) ?? []
-        listener({messages: history.slice(-limit), hasMore: history.length > limit})
+        listener({messages: history.slice(-size), hasMore: history.length > size})
       }
       const listeners = messageListeners.get(fid) ?? new Set()
       listeners.add(emit)

@@ -19,4 +19,4 @@ Credential files are ignored. The library never reads app credentials or ships t
 
 The package ships authored source for matching Beast/Octane compilers, following [Octane's package guidance](https://octanejs.dev/docs/build-tools). It is not yet published.
 
-App primitives are available at `src/components/ui/swipe-row.btsx` and `src/components/ui/pulse-heart.btsx`. Import their default components directly. SwipeRow accepts an `actions` array and `onAction`/`onCommit` callbacks; PulseHeart accepts `liked`, `count`, and `onChange`. They use local icons and the Octane 0.8-compatible motion package. They are not automatically mounted in the chat or exported by the library package yet.
+App primitives are available at `src/components/ui/swipe-row.btsx` and `src/components/ui/pulse-like.btsx`. Import their default components directly. SwipeRow accepts an `actions` array and `onAction`/`onCommit` callbacks and uses the Octane 0.8-compatible motion package. PulseLike accepts `liked`, `count`, and `onChange`; its implementation ships as `@beast-chat/chat/pulse-like` and powers chat reactions. The app file is a compatibility wrapper.

@@ -1,8 +1,18 @@
-import { useState } from 'octane'
+import { useLayoutEffect, useState } from 'octane'
 import { Chat, ChatIcon as Icon } from '@beast-chat/chat'
 import { adapter, identity } from './demo'
 
-setup const [theme, setTheme] = useState<'light' | 'dark'>('light');
+setup
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const previous = root.dataset.theme;
+    root.dataset.theme = theme;
+    return () => {
+      if (previous === undefined) delete root.dataset.theme;
+      else root.dataset.theme = previous;
+    };
+  }, [theme]);
 
 main.playground(data-theme={theme})
   header.playground-header
