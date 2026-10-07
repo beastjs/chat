@@ -337,5 +337,4 @@ describe('native Beast chat', () => {
       container.remove()
     }
   })
-
 })
