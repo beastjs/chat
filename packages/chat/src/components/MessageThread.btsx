@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'octane'
 import { useMessages } from '../hooks'
 import { normalizeMessageLimit } from '../core/message-limit'
 import { layoutMessages } from '../core/message-layout'
+import { formatFileSize } from '../core/attachment'
 import type { ChatAdapter, ChatIdentity } from '../core/adapter'
 import Composer from './Composer.btsx'
+import Icon from './Icon.btsx'
 import Bubble, { BubbleContent, BubbleReactions } from './ui/bubble.btsx'
 import MessageScroller, { MessageScrollerProvider, MessageScrollerViewport, MessageScrollerContent, MessageScrollerItem, MessageScrollerButton, useMessageScroller } from './ui/message-scroller.btsx'
 import PulseLike from "./ui/pulse-like.btsx";
@@ -47,20 +49,30 @@ component ThreadBody
                   time.bc-message-timestamp(datetime={message.createdAt}) #{timestamp}
                 Bubble(variant={message.senderId === identity.id ? 'default' : 'secondary'} align={message.senderId === identity.id ? 'end' : 'start'} className="bc-bubble")
                   BubbleContent(className="bc-bubble-content")
-                    p.bc-message-text #{message.content}
+                    if message.content
+                      p.bc-message-text #{message.content}
+                    each attachment in message.attachments ?? [] key attachment.storageId
+                      if attachment.url
+                        a.bc-attachment-file(href={attachment.url} target="_blank" rel="noopener noreferrer" download={attachment.fileName})
+                          if attachment.fileType.startsWith('image/')
+                            img.bc-attachment-image(src={attachment.url} alt={attachment.fileName} loading="lazy")
+                          else
+                            Icon(name="file")
+                          span.bc-file-info
+                            strong #{attachment.fileName}
+                            span #{formatFileSize(attachment.fileSize)}
+                      else
+                        span.bc-attachment-unavailable #{attachment.fileName + ' (unavailable)'}
                   if adapter.toggleLike && message.senderId !== identity.id
                     BubbleReactions(className="bc-message-reactions" data-has-likes={(message.likes?.length ?? 0) > 0})
                       PulseLike(size={10} liked={message.likes?.some(like => like.userId === identity.id) ?? false} count={message.likes?.length ?? 0} showCount={(message.likes?.length ?? 0) >= 2} label="Like message" onChange={() => void react(message._id)})
-                each attachment in message.attachments ?? [] key attachment.storageId
-                  if attachment.url
-                    a.bc-attachment(href={attachment.url} target="_blank" rel="noopener noreferrer") #{attachment.fileName}
                 if endsRun && message.senderId === identity.id
                   div.bc-message-meta
                     span #{message.readAt ? 'Read' : 'Sent'}
       MessageScrollerButton(className="bc-scroll-button")
     if actionError
       p.bc-error(role="alert") #{actionError}
-    Composer(adapter={adapter} fid={fid} onSent={() => scrollToEnd({ behavior: 'instant' })})
+    Composer(key={fid} adapter={adapter} fid={fid} onSent={() => scrollToEnd({ behavior: 'instant' })})
 
 props { adapter, identity, fid, pageSize = 50, smoothScroll = true }: { adapter: ChatAdapter; identity: ChatIdentity; fid: string; pageSize?: number; smoothScroll?: boolean }
 MessageScrollerProvider(key={fid} autoScroll={true} defaultScrollPosition="end" scrollEdgeThreshold={80} trackVisibility={false} smoothScroll={smoothScroll})

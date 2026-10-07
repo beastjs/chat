@@ -28,6 +28,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@beastjs/devtools": "^0.1.20",
     "@octanejs/rsbuild-plugin": "0.1.58",
     "@rsbuild/core": "^2.2.2",
     "@rsbuild/plugin-tailwindcss": "^2.0.3",

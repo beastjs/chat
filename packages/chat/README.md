@@ -47,7 +47,7 @@ Message windows use positive integer sizes. Fractional `pageSize`/adapter limits
 
 ## Adapters
 
-`@beast-chat/chat/memory` exports `createMemoryAdapter` for local development. It has no network connection, persistence, uploads, or automatic replies.
+`@beast-chat/chat/memory` exports `createMemoryAdapter` for local development. It has no network connection, persistence, or automatic replies. File uploads use local blob URLs; call `adapter.dispose()` after unmounting its consumers to release uploaded attachment URLs.
 
 `@beast-chat/chat/convex` exports `createConvexAdapter`. Pass a host-owned authenticated `ConvexClient` and identity:
 
@@ -62,6 +62,14 @@ Set authentication on the client before mounting. `identity.fid` is the Firebase
 The compatibility adapter targets the existing `rf` message APIs. It retains their auth and schema assumptions. Its queries fetch entire histories and slice on the client; `pageSize` bounds rendering, **not network or database work**. Treat it as small-history only until the bounded timeline/pagination stage lands. The `functions` option can override compatible endpoint names but does not alter their argument or result shapes. A genuinely bounded backend adapter is a remaining port stage.
 
 Convex's framework-independent subscription client: https://docs.convex.dev/api/classes/browser.ConvexClient.
+
+## Attachments
+
+The composer shows an attachment picker when `adapter.upload` is available. Select multiple files, preview images, remove selections, and send with or without text. Files upload when you press Send; upload/send failures retain the draft and selections. Successful uploads are reused on retry. Switching threads or unmounting aborts pending uploads and releases composer preview URLs.
+
+Implement `upload(file, signal)` to return `{storageId, fileName, fileType, fileSize, url}`. The Convex adapter accepts an optional `upload` function in its options; the host owns storage endpoints, authentication, and file validation. Forward the supplied abort signal to network requests. The memory adapter provides local uploads for the playground.
+
+Sent images render as previews; other files show their name and size with a download link. Attachment-only messages show file names in the inbox preview.
 
 ## Registry primitives and scrolling
 
@@ -85,12 +93,12 @@ The stylesheet includes a Tailwind 4 `@source` directive for the packaged compon
 - Responsive full chat and text composer with IME-aware Enter handling
 - Message window, explicit earlier-history loading, read receipts, likes
 - Consecutive sender groups with centered local date/time labels after five-minute gaps or day changes
-- Existing attachment download links
+- Multiple file selection, image previews, attachment-only sends, upload retries, and download links
 - Subscription cleanup, failed-send draft preservation, host callbacks
 
 ## Remaining source features
 
-Dock/window, guest bootstrap and account merge, assistant streaming and markdown, uploads/previews, image modal, voice recording/playback, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
+Dock/window, guest bootstrap and account merge, assistant streaming and markdown, image modal, voice recording/playback, folders/archive, message deletion, presence, and support communications/hours. No performance benchmark against `rf` has been run yet.
 
 The playground's `SwipeRow` and `@/lib/icons` stay in the demo app. `PulseLike` ships at `@beast-chat/chat/pulse-like` with self-contained icons. Chat supplies its `liked` and `count` from adapter messages; controlled usage keeps the adapter authoritative when a mutation fails.
 

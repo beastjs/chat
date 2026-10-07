@@ -1,10 +1,24 @@
+module
+  interface PendingFile {
+    id: string;
+    file: File;
+    preview: string | null;
+    uploaded?: Attachment;
+  }
 import { useEffect, useLayoutEffect, useRef, useState } from 'octane'
-import Icon from './Icon.btsx'
 import type { ChatAdapter } from '../core/adapter'
+import type { Attachment } from '../core/types'
+import { formatFileSize } from '../core/attachment'
+import Icon from "../../../../src/lib/icons/Icon.btsx";
 
 props { adapter, fid, onSent }: { adapter: ChatAdapter; fid: string; onSent?: () => void }
 setup
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft, getDraft] = useState('');
+  const [files, setFiles, getFiles] = useState<PendingFile[]>([]);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement | null>(null);
+  const previewUrls = useRef(new Set<string>());
+  const uploadAbort = useRef<AbortController | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLTextAreaElement | null>(null);
@@ -16,32 +30,104 @@ setup
   }, [draft]);
   const busy = useRef(false);
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      uploadAbort.current?.abort();
+      for (const url of previewUrls.current) URL.revokeObjectURL(url);
+      previewUrls.current.clear();
+    };
+  }, []);
+  const releasePreview = (item: PendingFile) => {
+    if (!item.preview) return;
+    URL.revokeObjectURL(item.preview);
+    previewUrls.current.delete(item.preview);
+  };
+  const selectFiles = (event: Event & { currentTarget: HTMLInputElement }) => {
+    if (busy.current) return;
+    const selected = Array.from(event.currentTarget.files ?? []).map(file => {
+      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+      if (preview) previewUrls.current.add(preview);
+      return { id: crypto.randomUUID(), file, preview };
+    });
+    setFiles(current => [...current, ...selected]);
+    setError(null);
+    event.currentTarget.value = '';
+    input.current?.focus({ preventScroll: true });
+  };
+  const removeFile = (id: string) => {
+    if (busy.current) return;
+    const item = getFiles().find(item => item.id === id);
+    if (item) releasePreview(item);
+    setFiles(current => current.filter(item => item.id !== id));
+    setError(null);
+  };
   const send = async () => {
-    const content = draft.trim();
-    if (!content || busy.current) return;
+    const content = getDraft().trim();
+    const selected = getFiles();
+    if ((!content && !selected.length) || busy.current) return;
     busy.current = true;
     setSending(true);
     setError(null);
+    const controller = new AbortController();
+    uploadAbort.current = controller;
     try {
-      await adapter.sendMessage(fid, content);
+      const attachments: Attachment[] = [];
+      for (const item of selected) {
+        let attachment = item.uploaded;
+        if (!attachment) {
+          if (!adapter.upload) throw new Error('This chat does not support uploads');
+          setUploadingId(item.id);
+          attachment = await adapter.upload(item.file, controller.signal);
+          if (!alive.current || controller.signal.aborted) return;
+          setFiles(current => current.map(file => file.id === item.id ? { ...file, uploaded: attachment } : file));
+        }
+        attachments.push(attachment);
+      }
+      if (!alive.current || controller.signal.aborted) return;
+      setUploadingId(null);
+      await adapter.sendMessage(fid, content, attachments.length ? attachments : undefined);
       if (!alive.current) return;
       setDraft(current => current.trim() === content ? '' : current);
+      const sentIds = new Set(selected.map(item => item.id));
+      setFiles(current => current.filter(item => !sentIds.has(item.id)));
+      for (const item of selected) releasePreview(item);
       onSent?.();
       input.current?.focus({ preventScroll: true });
     } catch (cause) {
       if (alive.current) setError(cause instanceof Error ? cause.message : 'Message failed to send');
     } finally {
       busy.current = false;
-      if (alive.current) setSending(false);
+      uploadAbort.current = null;
+      if (alive.current) { setSending(false); setUploadingId(null); }
     }
   };
 
 form.bc-composer(onSubmit={event => { event.preventDefault(); void send(); }})
+  if files.length > 0
+    ul.bc-pending-files(aria-label="Selected attachments")
+      each item in files key item.id
+        li.bc-pending-file
+          if item.preview
+            img.bc-file-preview(src={item.preview} alt={item.file.name})
+          else
+            span.bc-file-icon(aria-hidden="true")
+              Icon(name="file")
+          div.bc-file-info
+            strong #{item.file.name}
+            span(role={uploadingId === item.id ? 'status' : undefined}) #{uploadingId === item.id ? 'Uploading…' : formatFileSize(item.file.size)}
+          button.bc-remove-file(type="button" aria-label={'Remove ' + item.file.name} disabled={sending} onClick={() => removeFile(item.id)})
+            Icon(name="close")
+  if adapter.upload
+    fragment
+      input.bc-file-picker(ref={picker} type="file" multiple hidden onChange={selectFiles})
+      button.bc-attach(type="button" aria-label="Add attachments" disabled={sending} onClick={() => picker.current?.click()})
+        Icon(name="attachment")
   div.bc-composer-field
     textarea(ref={input} rows={1} aria-label="Message" placeholder="Message…" autoComplete="off" enterKeyHint="send" value={draft} onInput={event => setDraft(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); } }})
-  button.bc-send(type="submit" aria-label={sending ? 'Sending message' : 'Send message'} onPointerDown={event => event.preventDefault()} disabled={sending || !draft.trim()})
-    Icon(name="send")
-    span #{sending ? 'Sending' : 'Send'}
+  button.bc-send(type="submit" aria-label={sending ? 'Sending message' : 'Send message'} onPointerDown={event => event.preventDefault()} disabled={sending || (!draft.trim() && !files.length)})
+    Icon(name="arrow-up")
+    span #{uploadingId ? 'Uploading' : sending ? 'Sending' : 'Send'}
   if error
     p.bc-error(role="alert") #{error}

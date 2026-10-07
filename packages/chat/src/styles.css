@@ -38,7 +38,7 @@
 .bc-search { width:100%; height:44px; border:1px solid var(--bc-line); background:var(--bc-bg); padding:10px 12px 10px 36px; border-radius:10px; color:inherit; font-size:13px !important; }
 .bc-list-label { margin:0 22px 8px; }
 .bc-conversations { overflow:auto; padding:0 9px; overscroll-behavior:contain; }
-.bc-conversation { display:flex; align-items:center; gap:12px; min-height:76px; padding:13px 12px; border:1px solid transparent; border-radius:12px; background:transparent; color:inherit; text-align:left; width:100%; transition:background 160ms,border-color 160ms; }
+.bc-conversation { display:flex; align-items:center; gap:12px; min-height:64px; padding:13px 12px; border:1px solid transparent; border-radius:20px; background:transparent; color:inherit; text-align:left; width:100%; transition:background 160ms,border-color 160ms; }
 .bc-conversation:hover { background:var(--bc-soft); }
 .bc-conversation[aria-current=true] { background:var(--bc-bg); border-color:var(--bc-line); box-shadow:0 2px 4px #00000004; }
 .bc-avatar { flex:0 0 38px; width:38px; height:38px; display:grid; place-items:center; background:var(--bc-soft); color:var(--bc-ink); border:1px solid var(--bc-line); border-radius:12px; font-size:11px; font-weight:550; }
@@ -88,6 +88,24 @@
 .bc-reaction:hover,.bc-reaction[aria-pressed=true] { color:var(--bc-orange); background:var(--bc-soft); }
 .bc-attachment { color:var(--bc-ink); margin:4px 0; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:3px; }
 .bc-composer { display:flex; align-items:end; gap:10px; flex-wrap:wrap; padding:16px 26px 24px; background:var(--bc-bg); }
+.bc-pending-files { flex-basis:100%; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:8px; margin:0; padding:0; list-style:none; }
+.bc-pending-file { display:flex; align-items:center; gap:10px; min-width:0; padding:9px; border:1px solid var(--bc-line); border-radius:12px; background:var(--bc-panel); }
+.bc-file-preview,.bc-file-icon { flex:0 0 42px; width:42px; height:42px; border-radius:7px; }
+.bc-file-preview { object-fit:cover; }
+.bc-file-icon { display:grid; place-items:center; background:var(--bc-soft); color:var(--bc-muted); }
+.bc-file-info { display:flex; flex-direction:column; min-width:0; gap:3px; }
+.bc-file-info strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:550; }
+.bc-file-info > span { font-size:11px; opacity:.7; }
+.bc-remove-file { display:grid; place-items:center; flex:0 0 32px; width:32px; height:32px; margin-left:auto; padding:0; border:0; border-radius:7px; background:transparent; color:var(--bc-muted); }
+.bc-remove-file:hover { background:var(--bc-soft); color:var(--bc-ink); }
+.bc-attach { display:grid; place-items:center; flex:0 0 44px; width:44px; height:48px; padding:0; background:var(--bc-panel); color:var(--bc-ink); border:1px solid var(--bc-line); border-radius:14px; }
+.bc-attach:hover:not(:disabled) { background:var(--bc-soft); }
+.bc-attachment-file { display:flex; align-items:center; gap:10px; max-width:100%; margin-top:8px; color:inherit; text-decoration:none; white-space:normal; }
+.bc-attachment-file:first-child { margin-top:0; }
+.bc-attachment-file > svg { flex-shrink:0; }
+.bc-attachment-file:has(img) { flex-direction:column; align-items:stretch; }
+.bc-attachment-image { display:block; width:280px; max-width:100%; height:auto; max-height:280px; object-fit:contain; border-radius:9px; }
+.bc-attachment-unavailable { display:block; font-size:12px; opacity:.7; }
 .bc-composer-field { display:flex; flex:1; min-width:0; border:1px solid var(--bc-line); background:var(--bc-panel); padding:11px 15px; border-radius:14px; transition:border-color 160ms; }
 .bc-composer-field:focus-within { border-color:var(--bc-muted); }
 .bc-composer textarea { flex:1; width:100%; min-width:0; min-height:24px; max-height:120px; overflow:auto; resize:none; border:0; background:transparent; color:inherit; font-size:16px; line-height:24px; outline:none !important; touch-action:pan-y; }
@@ -126,7 +144,7 @@
   .bc-send { width:48px; height:48px; padding:12px; border-radius:14px; }
   .bc-send span { display:none; }
   .bc-send svg { width:22px; height:22px; }
-  .bc-conversation { min-height:82px; }
+  .bc-conversation { min-height:64px; }
   .bc-search { font-size:16px !important; }
   .bc-load { min-height:44px; }
   .bc-profile { padding-bottom:max(18px,env(safe-area-inset-bottom)); }

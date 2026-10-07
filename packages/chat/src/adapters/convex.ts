@@ -8,18 +8,21 @@ export interface ConvexChatOptions {
   /** Authenticated, host-owned client; the library never closes it. */
   client: ConvexClient
   identity: ChatIdentity
+  /** Host-owned upload implementation, using the host's storage/auth endpoints. */
+  upload?: ChatAdapter['upload']
   /** Existing rf endpoints are the default. Override when deploying bounded queries. */
   functions?: Partial<{conversations: string; messages: string; send: string; read: string; like: string}>
 }
 
 /** Compatibility adapter for rf. Its legacy queries still fetch full histories. */
-export function createConvexAdapter({client, identity, functions = {}}: ConvexChatOptions): ChatAdapter {
+export function createConvexAdapter({client, identity, upload, functions = {}}: ConvexChatOptions): ChatAdapter {
   const conversations = makeFunctionReference<'query', {fid: string}, Conversation[]>(functions.conversations ?? 'messages/q:getConversations')
   const messages = makeFunctionReference<'query', {currentUserId: string; otherUserId: string}, Message[]>(functions.messages ?? 'messages/q:getMessages')
   const send = makeFunctionReference<'mutation', {senderId: string; receiverId: string; content: string; attachments?: Omit<Attachment, 'url'>[]}, unknown>(functions.send ?? 'messages/m:sendMessage')
   const read = makeFunctionReference<'mutation', {senderfid: string; receiverfid: string}, unknown>(functions.read ?? 'messages/m:markAsRead')
   const like = makeFunctionReference<'mutation', {messageId: string; userfid: string}, unknown>(functions.like ?? 'messages/m:likeMessage')
   return {
+    ...(upload ? {upload} : {}),
     subscribeConversations: (callback, onError) => client.onUpdate(conversations, {fid: identity.fid}, callback, onError),
     subscribeMessages: (fid, limit, callback, onError) => client.onUpdate(messages, {currentUserId: identity.fid, otherUserId: fid}, values => callback({messages: values.slice(-normalizeMessageLimit(limit)), hasMore: values.length > normalizeMessageLimit(limit)}), onError),
     async sendMessage(fid, content, attachments) {

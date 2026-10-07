@@ -8,8 +8,14 @@ export interface MemoryChatOptions {
   messages?: Readonly<Record<string, readonly Message[]>>
 }
 
+export interface MemoryChatAdapter extends ChatAdapter {
+  /** Release local attachment URLs once the adapter is no longer in use. */
+  dispose(): void
+}
+
 /** Local sandbox only; creates no network connection and persists no data. */
-export function createMemoryAdapter(options: MemoryChatOptions): ChatAdapter {
+export function createMemoryAdapter(options: MemoryChatOptions): MemoryChatAdapter {
+  const attachmentUrls = new Set<string>()
   let conversations = [...options.conversations]
   const messages = new Map(Object.entries(options.messages ?? {}).map(([fid, values]) => [fid, [...values]]))
   const conversationListeners = new Set<(values: readonly Conversation[]) => void>()
@@ -19,6 +25,16 @@ export function createMemoryAdapter(options: MemoryChatOptions): ChatAdapter {
     for (const listener of conversationListeners) listener(conversations)
   }
   return {
+    async upload(file, signal) {
+      signal?.throwIfAborted()
+      const url = URL.createObjectURL(file)
+      attachmentUrls.add(url)
+      return {storageId: crypto.randomUUID(), fileName: file.name, fileType: file.type || 'application/octet-stream', fileSize: file.size, url}
+    },
+    dispose() {
+      for (const url of attachmentUrls) URL.revokeObjectURL(url)
+      attachmentUrls.clear()
+    },
     subscribeConversations(listener) {
       conversationListeners.add(listener)
       listener(conversations)

@@ -4,6 +4,9 @@ All notable changes to `chat` will be recorded here.
 
 ## [Unreleased]
 
+- Add multiple attachments to the composer with image previews, file removal, upload states, retry-safe sends, and cancellation/preview cleanup on unmount.
+- Enable local uploads in the memory adapter and a host-provided upload function in the Convex adapter; display sent images and file downloads inside message bubbles.
+
 - Group consecutive sender bubbles with joined corners and centered local date/time labels after five-minute gaps or day changes; show receipts at the end of outgoing runs.
 
 - Align dark-mode data attributes with registry tokens, scope chat primitive colors to its own palette, and synchronize page/native-control colors with the playground toggle.

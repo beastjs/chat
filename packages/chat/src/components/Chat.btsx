@@ -41,7 +41,7 @@ section.bc-chat(class={active ? 'bc-selected' : ''} data-theme={theme} data-nati
             span.bc-avatar(aria-hidden="true") #{name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}
             span.bc-conversation-text
               strong #{name}
-              span #{conversation.lastMessage.content || 'Start a conversation'}
+              span #{conversation.lastMessage.content || conversation.lastMessage.attachments?.map(file => file.fileName).join(', ') || 'Start a conversation'}
             if conversation.unreadCount > 0
               span.bc-unread(aria-label={conversation.unreadCount + ' unread messages'}) #{conversation.unreadCount}
     if !loading && !error && filtered.length === 0

@@ -405,4 +405,122 @@ describe('native Beast chat', () => {
     } finally { await act(() => root.unmount()); container.remove() }
   })
 
+  test('selects and removes previews, sends attachment-only messages, and releases local URLs', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: MessageThread} = await import('../packages/chat/src/components/MessageThread.btsx')
+    const identity = {id: 'you', fid: 'you', name: 'You'}
+    const memory = createMemoryAdapter({identity, conversations: [{otherUserId: 'alice', otherUser: {fid: 'alice', name: 'Alice', email: '', photoUrl: null}, lastMessage: {content: '', createdAt: ''}, unreadCount: 0, hasMessages: false}]})
+    const createUrl = URL.createObjectURL
+    const revokeUrl = URL.revokeObjectURL
+    const revoked: string[] = []
+    let sequence = 0
+    URL.createObjectURL = () => `blob:attachment-${++sequence}`
+    URL.revokeObjectURL = url => { revoked.push(url) }
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    try {
+      await act(() => root.render(MessageThread, {adapter: memory, identity, fid: 'alice', smoothScroll: false}))
+      const picker = container.querySelector('input[type=file]')!
+      Object.defineProperty(picker, 'files', {configurable: true, value: [new File(['image'], 'photo.png', {type: 'image/png'}), new File(['document'], 'notes.txt', {type: 'text/plain'})]})
+      await act(() => picker.dispatchEvent(new browser.Event('change', {bubbles: true})))
+      expect(container.querySelector('.bc-file-preview')!.getAttribute('src')).toBe('blob:attachment-1')
+      expect(container.querySelectorAll('.bc-pending-file').length).toBe(2)
+      await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Remove photo.png"]')!.click())
+      expect(revoked).toEqual(['blob:attachment-1'])
+      expect(container.querySelector<HTMLButtonElement>('.bc-send')!.disabled).toBe(false)
+      await act(async () => { container.querySelector('form')!.dispatchEvent(new browser.Event('submit', {bubbles: true, cancelable: true})); await Promise.resolve(); await Promise.resolve() })
+      expect(container.querySelectorAll('.bc-pending-file').length).toBe(0)
+      expect(container.querySelector('.bc-attachment-file')!.textContent).toContain('notes.txt')
+      expect(container.querySelector('.bc-attachment-file')!.getAttribute('href')).toBe('blob:attachment-2')
+      expect(container.querySelector('.bc-message-text')).toBeNull()
+      expect(container.querySelector<HTMLButtonElement>('.bc-send')!.disabled).toBe(true)
+    } finally {
+      await act(() => root.unmount()); container.remove(); memory.dispose()
+      URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl
+    }
+    expect(revoked).toEqual(['blob:attachment-1', 'blob:attachment-2'])
+  })
+  test('retains drafts and files through upload/send failures without uploading successful files again', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: Composer} = await import('../packages/chat/src/components/Composer.btsx')
+    const uploads: string[] = []
+    const sends: unknown[][] = []
+    let failUpload = true
+    let failSend = true
+    const adapter: ChatAdapter = {
+      subscribeConversations: () => () => {}, subscribeMessages: () => () => {},
+      upload: async file => {
+        uploads.push(file.name)
+        if (file.name === 'second.txt' && failUpload) { failUpload = false; throw new Error('Upload failed') }
+        return {storageId: file.name, fileName: file.name, fileType: file.type, fileSize: file.size, url: null}
+      },
+      sendMessage: async (...args) => { sends.push(args); if (failSend) { failSend = false; throw new Error('Send failed') } },
+    }
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    const submit = async () => { await act(async () => { container.querySelector('form')!.dispatchEvent(new browser.Event('submit', {bubbles: true, cancelable: true})); for (let i = 0; i < 5; i++) await Promise.resolve() }) }
+    try {
+      await act(() => root.render(Composer, {adapter, fid: 'alice'}))
+      const picker = container.querySelector('input[type=file]')!
+      Object.defineProperty(picker, 'files', {configurable: true, value: [new File(['one'], 'first.txt'), new File(['two'], 'second.txt')]})
+      await act(() => picker.dispatchEvent(new browser.Event('change', {bubbles: true})))
+      const input = container.querySelector('textarea')!
+      input.value = 'Keep my draft'
+      await act(() => input.dispatchEvent(new browser.Event('input', {bubbles: true})))
+      await submit()
+      expect(container.querySelector('[role=alert]')!.textContent).toBe('Upload failed')
+      expect(sends.length).toBe(0)
+      expect(input.value).toBe('Keep my draft')
+      await submit()
+      expect(container.querySelector('[role=alert]')!.textContent).toBe('Send failed')
+      expect(container.querySelectorAll('.bc-pending-file').length).toBe(2)
+      expect(input.value).toBe('Keep my draft')
+      await submit()
+      expect(uploads).toEqual(['first.txt', 'second.txt', 'second.txt'])
+      expect(sends.length).toBe(2)
+      expect((sends[1]![2] as unknown[]).length).toBe(2)
+      expect(input.value).toBe('')
+      expect(container.querySelectorAll('.bc-pending-file').length).toBe(0)
+    } finally { await act(() => root.unmount()); container.remove() }
+  })
+  test('aborts an in-flight upload and releases previews when the composer unmounts', async () => {
+    const {act, createRoot} = await import('octane')
+    const {default: Composer} = await import('../packages/chat/src/components/Composer.btsx')
+    let signal: AbortSignal | undefined
+    let finish!: (attachment: import('../packages/chat/src/core/types').Attachment) => void
+    let sends = 0
+    const adapter: ChatAdapter = {
+      subscribeConversations: () => () => {}, subscribeMessages: () => () => {},
+      upload: (_file, uploadSignal) => { signal = uploadSignal; return new Promise(resolve => { finish = resolve }) },
+      sendMessage: async () => { sends++ },
+    }
+    const createUrl = URL.createObjectURL, revokeUrl = URL.revokeObjectURL
+    const revoked: string[] = []
+    URL.createObjectURL = () => 'blob:pending-preview'
+    URL.revokeObjectURL = url => { revoked.push(url) }
+    const container = browser.document.createElement('div')
+    browser.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+    try {
+      await act(() => root.render(Composer, {adapter, fid: 'alice'}))
+      const picker = container.querySelector('input[type=file]')!
+      Object.defineProperty(picker, 'files', {configurable: true, value: [new File(['image'], 'photo.png', {type: 'image/png'})]})
+      await act(() => picker.dispatchEvent(new browser.Event('change', {bubbles: true})))
+      await act(() => container.querySelector('form')!.dispatchEvent(new browser.Event('submit', {bubbles: true, cancelable: true})))
+      expect(container.querySelector('[role=status]')!.textContent).toBe('Uploading…')
+      expect(container.querySelector<HTMLButtonElement>('.bc-send')!.disabled).toBe(true)
+      await act(() => root.unmount())
+      expect(signal!.aborted).toBe(true)
+      expect(revoked).toEqual(['blob:pending-preview'])
+      finish({storageId: 'uploaded', fileName: 'photo.png', fileSize: 5, fileType: 'image/png', url: null})
+      await Promise.resolve()
+      expect(sends).toBe(0)
+    } finally {
+      await act(() => root.unmount()); container.remove()
+      URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl
+    }
+  })
+
 })
